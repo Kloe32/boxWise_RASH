@@ -1,8 +1,31 @@
 {
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "mongodb": "^7.0.0",
-    "mongoose": "^9.0.1"
-  }
+    "fs": "^0.0.1-security",
+    "mysql2": "^3.16.0",
+    "nodemon": "^3.1.11",
+    "redis": "^5.10.0"
+  },
+  "name": "boxwise-rash",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js",
+    "seed:rooms":"node src/seeds/seedRooms.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kloe32/boxWise_RASH.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Kloe32/boxWise_RASH/issues"
+  },
+  "homepage": "https://github.com/Kloe32/boxWise_RASH#readme"
 }

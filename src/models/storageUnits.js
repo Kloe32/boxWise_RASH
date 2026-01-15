@@ -1,57 +1,59 @@
-import _sequelize from 'sequelize';
+import _sequelize from "sequelize";
 const { Model, Sequelize } = _sequelize;
 
 export default class StorageUnits extends Model {
   static init(sequelize, DataTypes) {
-  return super.init({
-    id: {
-      autoIncrement: true,
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      primaryKey: true
-    },
-    room_number: {
-      type: DataTypes.STRING(10),
-      allowNull: false
-    },
-    status: {
-      type: DataTypes.ENUM('AVAILABLE','LOCKED','OCCUPIED'),
-      allowNull: true
-    },
-    is_active: {
-      type: DataTypes.BOOLEAN,
-      allowNull: true,
-      defaultValue: 1
-    },
-    type_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'unit_types',
-        key: 'id'
+    return super.init(
+      {
+        id: {
+          autoIncrement: true,
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          primaryKey: true,
+        },
+        room_number: {
+          type: DataTypes.STRING(10),
+          allowNull: false,
+        },
+        status: {
+          type: DataTypes.ENUM("AVAILABLE", "LOCKED", "OCCUPIED"),
+          allowNull: true,
+        },
+        is_active: {
+          type: DataTypes.BOOLEAN,
+          allowNull: true,
+          defaultValue: 1,
+        },
+        type_id: {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          references: {
+            model: "unit_types",
+            key: "id",
+          },
+        },
+      },
+      {
+        sequelize,
+        tableName: "storage_units",
+        timestamps: true,
+        underscored: true,
+        createdAt: "created_at",
+        updatedAt: "updated_at",
+        indexes: [
+          {
+            name: "PRIMARY",
+            unique: true,
+            using: "BTREE",
+            fields: [{ name: "id" }],
+          },
+          {
+            name: "fk_unit_type",
+            using: "BTREE",
+            fields: [{ name: "type_id" }],
+          },
+        ],
       }
-    }
-  }, {
-    sequelize,
-    tableName: 'storage_units',
-    timestamps: true,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-      {
-        name: "fk_unit_type",
-        using: "BTREE",
-        fields: [
-          { name: "type_id" },
-        ]
-      },
-    ]
-  });
+    );
   }
 }

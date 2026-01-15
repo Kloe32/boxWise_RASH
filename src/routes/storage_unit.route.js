@@ -1,12 +1,8 @@
-import {
-  listStorageUnits,
-  getOneStorageUnit,
-} from "../controller/storage_unit.controller.js";
+import { storageUnitController } from "../controller/storage_unit.controller.js";
 import express from "express";
 
 const router = express.Router();
 
-router.get("/", listStorageUnits);
-router.get("/:id", getOneStorageUnit);
+router.get("/", storageUnitController.getAllUnits);
 
 export default router;

@@ -1,5 +1,18 @@
+CREATE DATABASE rash_db
+USE rash_db
 CREATE TABLE IF NOT EXISTS users (   id INT AUTO_INCREMENT PRIMARY KEY,   full_name VARCHAR(50) NOT NULL,   email VARCHAR(50) UNIQUE NOT NULL,   phone VARCHAR(20),   role ENUM('ADMIN','CUSTOMER') DEFAULT 'CUSTOMER',   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP )ENGINE=InnoDB;
-CREATE TABLE IF NOT EXISTS storage_units (   id INT AUTO_INCREMENT PRIMARY KEY,   room_number VARCHAR(10) NOT NULL,   email VARCHAR(50) UNIQUE NOT NULL,   base_price DECIMAL(10,2),   size_type ENUM('SMALL','MEDIUM','LARGE') DEFAULT 'MEDIUM',   status ENUM('AVAILABLE','LOCKED','OCCUPIED'),   is_active BOOLEAN DEFAULT TRUE,   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP )ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS storage_units (   
+  id INT AUTO_INCREMENT PRIMARY KEY,   
+  room_number VARCHAR(10) NOT NULL,   
+  email VARCHAR(50) UNIQUE NOT NULL,   
+  status ENUM('AVAILABLE','LOCKED','OCCUPIED'),
+  is_active BOOLEAN DEFAULT TRUE, 
+  
+  type_id int NOT NULL,
+  ADD CONSTRAINT fk_unit_type
+  FOREIGN KEY (type_id) REFERENCES unit_types(id)
+  ON UPDATE CASCADE ON DELETE RESTRICT
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP )ENGINE=InnoDB;
 
 
 CREATE TABLE IF NOT EXISTS bookings(
@@ -32,24 +45,13 @@ CREATE INDEX idx_bookings_dates ON bookings(start_date, end_date);
 CREATE INDEX idx_bookings_status ON bookings(status);
 
 
-CREATE TABLE IF NOT EXISTS Address (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  reservation_id INT NOT NULL,
+CREATE TABLE IF NOT EXISTS unit_types (
+id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+type_name VARCHAR(50) NOT NULL,
+sqft DECIMAL(5,2) NULL,
+base_price DECIMAL(10,2) NULL,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) Engine = InnoDB;
 
-  address_type ENUM('PickUp','Delivery') NOT NULL,
-  address_line1 VARCHAR(255) NOT NULL,
-  address_line2 VARCHAR(255) NULL,
-  postal_code INT NOT NULL,
-
-  CONSTRAINT fk_address_booking
-    FOREIGN KEY (reservation_id) REFERENCES bookings(id)
-    ON UPDATE CASCADE ON DELETE CASCADE,
-    
-	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    
-) ENGINE=InnoDB;
-
-CREATE INDEX idx_address_reservation_id ON Address(reservation_id);
 
 CREATE TABLE IF NOT EXISTS seasonal_pricing (
   id INT AUTO_INCREMENT PRIMARY KEY,

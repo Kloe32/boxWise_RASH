@@ -1,16 +1,16 @@
 import express from "express";
-import { config } from "./src/config/config.js";
-import redis from "redis";
+import { env } from "./src/config/env.js";
 import cors from "cors";
-import pool from "./src/db/pool.js";
+import { sequelize } from "./src/db/sequelize.js";
 
 const app = express();
-const PORT = config.PORT || 8080;
+const PORT = env.PORT || 8080;
 app.use(express.json());
 
 async function start() {
-  await pool.query("SELECT 1");
-  console.log("MYSQL Connected ✅");
+  await sequelize.authenticate();
+  console.log("Database Connected!🟢");
+
   app.listen(PORT, () => {
     console.log(`🚀 Server is Listening on http://localhost:${PORT}`);
   });
@@ -18,11 +18,6 @@ async function start() {
 
 app.get("/", (req, res) => {
   res.send("Hello from BoxWise");
-});
-
-app.get("/db-test", async (req, res) => {
-  const [rows] = await pool.query("SELECT NOW() AS now");
-  res.json(rows[0]);
 });
 
 start().catch((err) => {
@@ -33,7 +28,5 @@ start().catch((err) => {
 app.use(cors());
 
 //Routes
-import userRouter from "./src/routes/user.route.js";
-app.use("/api/v1/user", userRouter);
-import storageRouter from "./src/routes/storage_unit.route.js";
-app.use("/api/v1/storage-unit", storageRouter);
+import authRouter from "./src/routes/auth.route.js";
+app.use("/api/v1/user", authRouter);

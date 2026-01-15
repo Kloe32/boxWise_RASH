@@ -26,7 +26,7 @@ const rooms = [
   { no: "L-04", size: "Large", sqft: 120, price: 250 },
 ];
 
-async function seedRooms() {
+export async function seedRooms() {
   for (const r of rooms) {
     await pool.query(
       `

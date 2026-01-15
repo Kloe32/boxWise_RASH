@@ -1,9 +1,11 @@
 {
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "fs": "^0.0.1-security",
+    "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.16.0",
     "nodemon": "^3.1.11",
     "redis": "^5.10.0"
@@ -13,8 +15,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "nodemon server.js",
-    "seed:rooms":"node src/seeds/seedRooms.js"
+    "start": "nodemon server.js"
   },
   "repository": {
     "type": "git",
@@ -27,5 +28,9 @@
   "bugs": {
     "url": "https://github.com/Kloe32/boxWise_RASH/issues"
   },
-  "homepage": "https://github.com/Kloe32/boxWise_RASH#readme"
+  "homepage": "https://github.com/Kloe32/boxWise_RASH#readme",
+  "devDependencies": {
+    "sequelize-auto": "^0.8.8",
+    "sequelize-cli": "^6.6.5"
+  }
 }

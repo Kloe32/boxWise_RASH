@@ -1,6 +1,7 @@
 import {
   getAllStorageUnits,
   getStorageUnitById,
+  updateStorageUnitStatus,
 } from "../repositories/storage_unit.repo.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -40,6 +41,22 @@ const getOneStorageUnit = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, unit, "Storage Fetched Successfully!"));
+});
+
+//Update
+const patchUnitStatus = asyncHandler(async (req, res) => {
+  const room_id = Number(req.params.id);
+
+  const { status } = req.body;
+
+  if (status && !ALLOWED_STATUS.has(status)) {
+    throw new ApiError(400, "Invalid Status");
+  }
+
+  const ok = await patchUnitStatus(room_id, status);
+  
+
+  return res.status(200).json(new ApiResponse(200));
 });
 
 export { listStorageUnits, getOneStorageUnit };

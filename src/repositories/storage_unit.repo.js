@@ -39,3 +39,11 @@ export async function getStorageUnitById(room_id) {
   );
   return rows[0] ?? null;
 }
+
+export async function updateStorageUnitStatus(room_id, status) {
+  const [result] = await pool.query(
+    `UPDATE storage_units SET status = ? WHERE room_id = ?`,
+    [status, room_id]
+  );
+  return result.affectedRows > 0;
+}

@@ -27,8 +27,8 @@ export const storageUnitRepo = {
     });
   },
 
-  patchUnitStatus(id, status, option = {}) {
-    return db.StorageUnits.update(status, {
+  patchUnitStatus(id, payload, option = {}) {
+    return db.StorageUnits.update(payload, {
       where: { id },
       ...option,
     });

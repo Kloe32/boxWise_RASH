@@ -1,45 +1,42 @@
-import _sequelize from "sequelize";
+import _sequelize from 'sequelize';
 const { Model, Sequelize } = _sequelize;
 
 export default class UnitTypes extends Model {
   static init(sequelize, DataTypes) {
-    return super.init(
+  return super.init({
+    id: {
+      autoIncrement: true,
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      primaryKey: true
+    },
+    type_name: {
+      type: DataTypes.STRING(50),
+      allowNull: false
+    },
+    sqft: {
+      type: DataTypes.DECIMAL(5,2),
+      allowNull: true
+    },
+    base_price: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: true
+    }
+  }, {
+    sequelize,
+    tableName: 'unit_types',
+    timestamps: true,
+    underscored: true,
+    indexes: [
       {
-        id: {
-          autoIncrement: true,
-          type: DataTypes.INTEGER,
-          allowNull: false,
-          primaryKey: true,
-        },
-        type_name: {
-          type: DataTypes.STRING(50),
-          allowNull: false,
-        },
-        sqft: {
-          type: DataTypes.DECIMAL(5, 2),
-          allowNull: true,
-        },
-        base_price: {
-          type: DataTypes.DECIMAL(10, 2),
-          allowNull: true,
-        },
+        name: "PRIMARY",
+        unique: true,
+        using: "BTREE",
+        fields: [
+          { name: "id" },
+        ]
       },
-      {
-        sequelize,
-        tableName: "unit_types",
-        timestamps: true,
-        underscored: true,
-        createdAt: "created_at",
-        updatedAt: "updated_at",
-        indexes: [
-          {
-            name: "PRIMARY",
-            unique: true,
-            using: "BTREE",
-            fields: [{ name: "id" }],
-          },
-        ],
-      }
-    );
+    ]
+  });
   }
 }

@@ -11,8 +11,7 @@ const getAllUnits = asyncHandler(async (req, res) => {
 
 const updateUnitStatus = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const status = req.body.status;
-  const result = await storageUnitService.updateUnitStatus(id, status);
+  const result = await storageUnitService.updateUnitStatus(id, req.body);
   return res
     .status(200)
     .json(new ApiResponse(200, result, "Status Successfully Updated!"));

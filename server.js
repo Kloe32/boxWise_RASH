@@ -32,4 +32,4 @@ import authRouter from "./src/routes/auth.route.js";
 app.use("/api/v1/user", authRouter);
 
 import unitRouter from "./src/routes/storage_unit.route.js";
-app.use("api/v1/storage-unit", unitRouter);
+app.use("/api/v1/storage-unit", unitRouter);

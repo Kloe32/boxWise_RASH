@@ -5,14 +5,6 @@ import { security } from "../utils/encryptDecrypt.js";
 import { authRepo } from "../repositories/auth.repo.js";
 import { ApiError } from "../utils/ApiError.js";
 
-async function hash(password) {
-  return await bcrypt.hash(password, 5);
-}
-
-function isPasswordCorrect(password, password_hash) {
-  return bcrypt.compare(password, password_hash);
-}
-
 function signToken(payload) {
   return jwt.sign(payload, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRY || "1d",

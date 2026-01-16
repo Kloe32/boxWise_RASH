@@ -4,5 +4,6 @@ import express from "express";
 const router = express.Router();
 
 router.get("/", storageUnitController.getAllUnits);
+router.patch("/:id", storageUnitController.updateUnitStatus);
 
 export default router;

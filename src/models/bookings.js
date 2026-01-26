@@ -17,9 +17,9 @@ export default class Bookings extends Model {
         key: 'id'
       }
     },
-    room_id: {
+    unit_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'storage_units',
         key: 'id'
@@ -35,7 +35,7 @@ export default class Bookings extends Model {
     },
     return_date: {
       type: DataTypes.DATEONLY,
-      allowNull: false
+      allowNull: true
     },
     final_price: {
       type: DataTypes.DECIMAL(10,2),
@@ -72,7 +72,7 @@ export default class Bookings extends Model {
         name: "idx_bookings_room_id",
         using: "BTREE",
         fields: [
-          { name: "room_id" },
+          { name: "unit_id" },
         ]
       },
       {

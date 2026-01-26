@@ -1,4 +1,5 @@
 import { db } from "../db/db.js";
+import { Op } from "sequelize";
 
 export const storageUnitRepo = {
   findUnitById(id) {
@@ -32,5 +33,18 @@ export const storageUnitRepo = {
       where: { id },
       ...option,
     });
+  },
+
+  releaseExpiredUnits(unitIds, option = {}) {
+    return db.StorageUnits.update(
+      { status: "AVAILABLE" },
+      {
+        where: {
+          id: { [Op.in]: unitIds },
+          status: "RESERVED",
+        },
+        ...option,
+      },
+    );
   },
 };

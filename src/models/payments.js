@@ -42,6 +42,10 @@ export default class Payments extends Model {
       type: DataTypes.ENUM('Pending','Paid','Failed'),
       allowNull: false,
       defaultValue: "Pending"
+    },
+    payment_proof: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
     sequelize,

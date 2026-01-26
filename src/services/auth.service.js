@@ -55,15 +55,19 @@ export const authService = {
     if (!email && !phone)
       throw new ApiError(
         400,
-        "Email or phone are not provided are not provided"
+        "Email or phone are not provided are not provided",
       );
     if (!password) throw new ApiError(400, "Password Not Privided!");
 
     const user = await authRepo.findUserByEmailOrPhone({ email, phone });
-    if (!user) throw new ApiError(404, "User does not exists!");
+    if (!user)
+      throw new ApiError(
+        404,
+        "User does not exists with the provided credential!",
+      );
 
     const ok = security.comparison(password, user.password_ecrypt);
-    if (!ok) throw new ApiError(401, "Invalid Email or Password!");
+    if (!ok) throw new ApiError(401, "Wrong Password!");
 
     const token = signToken({ sub: user.id, role: user.role });
     return {

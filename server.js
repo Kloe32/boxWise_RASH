@@ -15,7 +15,7 @@ async function start() {
   app.listen(PORT, () => {
     console.log(`🚀 Server is Listening on http://localhost:${PORT}`);
   });
-  startJobs();
+  // startJobs();
 }
 
 app.get("/", (req, res) => {
@@ -40,5 +40,8 @@ app.use("/api/v1/storage-unit", unitRouter);
 import bookingRouter from "./src/routes/booking.route.js";
 app.use("/api/v1/bookings", bookingRouter);
 
-//error handler middleware
-// app.use(errorHandler);
+import typeRouter from "./src/routes/unit_type.route.js";
+app.use("/api/v1/unit-type", typeRouter);
+
+// error handler middleware
+app.use(errorHandler);

@@ -12,8 +12,7 @@ export default class SeasonalPricing extends Model {
     },
     year_reference: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      unique: "uq_month_year"
+      allowNull: false
     },
     multiplier: {
       type: DataTypes.DECIMAL(3,2),
@@ -38,6 +37,10 @@ export default class SeasonalPricing extends Model {
     end_date: {
       type: DataTypes.DATEONLY,
       allowNull: true
+    },
+    month_index: {
+      type: DataTypes.STRING(20),
+      allowNull: true
     }
   }, {
     sequelize,
@@ -51,14 +54,6 @@ export default class SeasonalPricing extends Model {
         using: "BTREE",
         fields: [
           { name: "id" },
-        ]
-      },
-      {
-        name: "uq_month_year",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "year_reference" },
         ]
       },
       {

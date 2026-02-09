@@ -11,4 +11,6 @@ export const env = {
   DB_CONNECTION_LIMIT: process.env.DB_CONNECTION_LIMIT,
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRY: process.env.JWT_EXPIRY,
+  GST_RATE: process.env.GST_RATE,
+  ADMIN_FEE: process.env.ADMIN_FEE,
 };

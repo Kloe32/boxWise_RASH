@@ -43,9 +43,8 @@ export default class Bookings extends Model {
       defaultValue: 0.00
     },
     status: {
-      type: DataTypes.ENUM('PENDING','CONFIRMED','COMPLETED','CANCELLED'),
-      allowNull: false,
-      defaultValue: "PENDING"
+      type: DataTypes.ENUM('PENDING','CONFIRMED','CANCELLED','RENEWED','ENDED'),
+      allowNull: true
     }
   }, {
     sequelize,

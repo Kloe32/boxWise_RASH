@@ -1,5 +1,5 @@
 import { db } from "../db/db.js";
-import { Op } from "sequelize";
+import { Sequelize, Op } from "sequelize";
 
 export const bookingRepo = {
   createBooking(data, options = {}) {
@@ -20,8 +20,35 @@ export const bookingRepo = {
           include: [{ model: db.UnitTypes, as: "type", required: true }],
           required: true,
         },
+        {
+          model: db.Payments,
+          as: "payments",
+          required: false,
+          where: { payment_status: "PENDING" },
+        },
       ],
 
+      ...options,
+    });
+  },
+
+  async getEndedBookingsWithinRange({ start, end }, options = {}) {
+    return db.Bookings.findAll({
+      where: {
+        status: "ENDED",
+        // overlap: booking.start < rangeEnd AND booking.end > rangeStart
+        start_date: { [Op.lt]: end },
+        end_date: { [Op.gt]: start },
+      },
+      attributes: ["id", "unit_id", "start_date", "end_date"],
+      include: [
+        {
+          model: db.StorageUnits,
+          as: "unit", // must match init-models alias
+          attributes: ["id", "type_id"],
+          required: true,
+        },
+      ],
       ...options,
     });
   },
@@ -43,37 +70,63 @@ export const bookingRepo = {
     });
   },
 
-  bulkCancel(ids, options) {
+  bulkCancel(ids, options = {}) {
     return db.Bookings.update(
       { status: "CANCELLED" },
       { where: { id: { [Op.in]: ids }, status: "PENDING" }, ...options },
+      ...options,
     );
   },
 
   findBookingById(id, options = {}) {
     return db.Bookings.findByPk(id, {
       include: [
-        { model: db.Users, as: "user", required: true },
+        {
+          model: db.Users,
+          as: "user",
+          required: true,
+          attributes: { exclude: ["password_ecrypt"] },
+        },
         {
           model: db.StorageUnits,
           as: "unit",
           include: [{ model: db.UnitTypes, as: "type", required: true }],
           required: true,
         },
+        {
+          model: db.Payments,
+          as: "payments",
+          required: true,
+          where: { payment_status: "PENDING" },
+        },
       ],
       ...options,
     });
   },
-  findBookingByUserId(user_id) {
+  findBookingByUserId(user_id, options = {}) {
     return db.Bookings.findAll({
       where: { user_id },
     });
   },
 
-  findUnitForUpdate(id, options = {}) {
-    return db.StorageUnits.findByPk(id, {
+  findAllUnitsWithTenants(unit_id, options = {}) {
+    const now = new Date();
+    return db.Bookings.findOne({
+      where: {
+        unit_id,
+        status: { [Op.in]: ["CONFIRMED", "RENEWED"] },
+        end_date: { [Op.gte]: now },
+      },
+      include: [
+        {
+          model: db.Users,
+          as: "user",
+          required: true,
+          attributes: { exclude: ["password_ecrypt"] },
+        },
+      ],
+      order: [["start_date", "ASC"]],
       ...options,
-      lock: options.transaction?.LOCK?.UPDATE,
     });
   },
 

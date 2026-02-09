@@ -10,7 +10,7 @@ export const sequelize = new Sequelize(
     port: Number(env.DB_PORT || 3306),
     dialect: "mysql",
     logging: true,
-  }
+  },
 );
 
 sequelize.authenticate();

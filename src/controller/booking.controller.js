@@ -18,7 +18,31 @@ const getBookingDetails = asyncHandler(async (req, res) => {
     );
 });
 
+const confirmBooking = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const result = await bookingService.confirmBooking(id, req.user);
+  return res.status(200).json(new ApiResponse(200, result, `Confirmed!`));
+});
+
+const cancelBooking = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const { status } = req.query;
+  const result = await bookingService.cancelBooking(id, status, req.user);
+  return res.status(200).json(new ApiResponse(200, result, `Status Updated!`));
+});
+
+const getPendingBookingsWithDate = asyncHandler(async (req, res) => {
+  const bookings = await bookingService.getPendingBookingsWithDate(req.user);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, bookings, `${bookings.length} Fetched Successfully`),
+    );
+});
 export const bookingsController = {
-  createBooking ,
+  createBooking,
   getBookingDetails,
+  confirmBooking,
+  cancelBooking,
+  getPendingBookingsWithDate,
 };

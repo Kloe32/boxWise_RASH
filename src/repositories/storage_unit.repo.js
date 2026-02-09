@@ -1,5 +1,5 @@
 import { db } from "../db/db.js";
-import { Op } from "sequelize";
+import { Sequelize, Op } from "sequelize";
 
 export const storageUnitRepo = {
   findUnitById(id) {
@@ -14,7 +14,13 @@ export const storageUnitRepo = {
     });
   },
 
-  getAllUnits(filter = {}) {
+  findUnitForUpdate(id, options = {}) {
+    return db.StorageUnits.findByPk(id, {
+      ...options,
+      lock: options.transaction?.LOCK?.UPDATE,
+    });
+  },
+  getAllUnits(filter = {}, option = {}) {
     return db.StorageUnits.findAll({
       where: filter,
       include: [
@@ -25,7 +31,73 @@ export const storageUnitRepo = {
         },
       ],
       order: [["id", "ASC"]],
+      ...option,
     });
+  },
+
+  getAllUnitsWithTenants(filter = {}, options = {}) {
+    const now = new Date();
+    return db.StorageUnits.findAll({
+      where: filter,
+      include: [
+        {
+          model: db.UnitTypes,
+          as: "type",
+          required: true,
+        },
+        {
+          model: db.Bookings,
+          as: "bookings",
+          required: false,
+          where: {
+            status: { [Op.in]: ["CONFIRMED", "RENEWED", "PENDING"] },
+            end_date: { [Op.gte]: now },
+          },
+          include: [
+            { model: db.Users, as: "user", required: false },
+            {
+              model: db.Payments,
+              as: "payments",
+              where: { payment_status: "PENDING" },
+              required: false,
+            },
+          ],
+        },
+      ],
+      order: [["id", "ASC"]],
+      ...options,
+    });
+  },
+
+  async getUnitCountsByType(options = {}) {
+    const rows = await db.StorageUnits.findAll({
+      attributes: [
+        "type_id",
+        [Sequelize.fn("COUNT", Sequelize.col("id")), "unit_count"],
+      ],
+      group: ["type_id"],
+      ...options,
+    });
+    const map = new Map();
+    for (const r of rows)
+      map.set(Number(r.type_id), Number(r.get("unit_count")));
+    return map;
+  },
+  async getCurrentOccupiedCountsByType(options = {}) {
+    const rows = await db.StorageUnits.findAll({
+      attributes: [
+        "type_id",
+        [Sequelize.fn("COUNT", Sequelize.col("id")), "occ_count"],
+      ],
+      where: { status: { [Op.in]: ["OCCUPIED", "RESERVED"] } },
+      group: ["type_id"],
+      ...options,
+    });
+
+    const map = new Map();
+    for (const r of rows)
+      map.set(Number(r.type_id), Number(r.get("occ_count")));
+    return map;
   },
 
   patchUnitStatus(id, payload, option = {}) {
@@ -43,6 +115,16 @@ export const storageUnitRepo = {
           id: { [Op.in]: unitIds },
           status: "RESERVED",
         },
+        ...option,
+      },
+    );
+  },
+
+  updateUnitPriceByType(typeId, unitPrice, option = {}) {
+    return db.StorageUnits.update(
+      { unit_price: unitPrice },
+      {
+        where: { type_id: typeId },
         ...option,
       },
     );

@@ -21,6 +21,10 @@ export default class UnitTypes extends Model {
     base_price: {
       type: DataTypes.DECIMAL(10,2),
       allowNull: true
+    },
+    dimensions: {
+      type: DataTypes.STRING(20),
+      allowNull: true
     }
   }, {
     sequelize,

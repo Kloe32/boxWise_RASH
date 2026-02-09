@@ -10,7 +10,7 @@ export default class StorageUnits extends Model {
       allowNull: false,
       primaryKey: true
     },
-    room_number: {
+    unit_number: {
       type: DataTypes.STRING(10),
       allowNull: false
     },
@@ -30,6 +30,10 @@ export default class StorageUnits extends Model {
         model: 'unit_types',
         key: 'id'
       }
+    },
+    unit_price: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: true
     }
   }, {
     sequelize,

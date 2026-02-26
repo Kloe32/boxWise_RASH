@@ -17,7 +17,7 @@ export function startJobs() {
     }
   });
 
-  cron.schedule("0 3 * * 1", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     try {
       const result = await adjustStorageUnitPrice();
       if (result) console.log("🕒 Dynamic Pricing Updated!", result);

@@ -16,10 +16,18 @@ export const storageUnitRepo = {
 
   findUnitForUpdate(id, options = {}) {
     return db.StorageUnits.findByPk(id, {
+      include: [
+        {
+          model: db.UnitTypes,
+          as: "type",
+          required: true,
+        },
+      ],
       ...options,
       lock: options.transaction?.LOCK?.UPDATE,
     });
   },
+
   getAllUnits(filter = {}, option = {}) {
     return db.StorageUnits.findAll({
       where: filter,
@@ -115,16 +123,6 @@ export const storageUnitRepo = {
           id: { [Op.in]: unitIds },
           status: "RESERVED",
         },
-        ...option,
-      },
-    );
-  },
-
-  updateUnitPriceByType(typeId, unitPrice, option = {}) {
-    return db.StorageUnits.update(
-      { unit_price: unitPrice },
-      {
-        where: { type_id: typeId },
         ...option,
       },
     );

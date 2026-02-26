@@ -51,12 +51,14 @@ export const bookingService = {
       if (overlaps.length > 0) {
         throw new ApiError(409, "This unit is already booked");
       }
-
       // dynamic pricing section
-      if (!unit?.unit_price || Number(unit.unit_price) <= 0) {
+      const unit_price = Number(
+        unit?.type?.adjusted_price ?? unit?.type?.base_price ?? 0,
+      );
+      if (!unit_price || unit_price <= 0) {
         throw new ApiError(400, "Unit price is not set.");
       }
-      const receipt = calculateFinalPrice(unit.unit_price, duration);
+      const receipt = calculateFinalPrice(unit_price, duration);
 
       const initialPayment = receipt?.breakdown?.initial_payment ?? 0;
       if (!initialPayment || initialPayment <= 0) {
@@ -129,7 +131,7 @@ export const bookingService = {
         (end.getMonth() - start.getMonth());
       const durationMonths = Math.max(monthsDiff, 0);
 
-      const unitPrice = Number(booking.unit?.unit_price ?? 0);
+      const unitPrice = Number(booking.unit?.type?.adjusted_price ?? 0);
       const receipt = calculateFinalPrice(unitPrice, durationMonths);
 
       const recurringMonths = receipt?.breakdown?.recurring_months ?? 0;
@@ -177,6 +179,14 @@ export const bookingService = {
           `Invalid Status! Must be one of: ${availableStatuses.join(", ")}`,
         );
       filters.status = query.status;
+    }
+    if (query?.year) {
+      const startOfYear = new Date(Number(query.year), 0, 1);
+      const endOfYear = new Date(Number(query.year), 11, 31, 23, 59, 59, 999);
+      filters.created_at = {
+        [Op.gte]: startOfYear,
+        [Op.lte]: endOfYear,
+      };
     }
     //filter by unit_id
     if (query?.unit_id) filters.unit_id = Number(query.unit_id);
@@ -248,5 +258,188 @@ export const bookingService = {
       })
     ).length;
     return { totalPending, todayPending, yesterdayPending };
+  },
+  async requestEarlyVacate(booking_id, requestedDate, authUser) {
+    if (!authUser) throw new ApiError(401, "Unauthorized");
+
+    if (!booking_id) throw new ApiError(402, "Id is required!");
+    if (!requestedDate) throw new ApiError(400, "requestedDate is required!");
+
+    const requestedDateOnly = String(requestedDate);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDateOnly)) {
+      throw new ApiError(400, "requestedDate must be in YYYY-MM-DD format.");
+    }
+
+    const booking = await bookingRepo.findBookingById(booking_id);
+    if (!booking) throw new ApiError(404, "Booking Not Found!");
+
+    if (booking.user_id !== authUser.id)
+      throw new ApiError(
+        403,
+        "You can only request early vacate for your own bookings.",
+      );
+
+    if (!["CONFIRMED", "RENEWED"].includes(booking.status)) {
+      throw new ApiError(
+        409,
+        "Early vacate can only be requested for active bookings.",
+      );
+    }
+
+    if (booking.is_vacated) {
+      throw new ApiError(409, "Booking is already vacated.");
+    }
+
+    if (booking.return_date) {
+      throw new ApiError(409, "Early vacate has already been requested.");
+    }
+
+    const startDateOnly = String(booking.start_date).slice(0, 10);
+    const endDateOnly = String(booking.end_date).slice(0, 10);
+    if (requestedDateOnly < startDateOnly || requestedDateOnly > endDateOnly) {
+      throw new ApiError(
+        400,
+        `requestedDate must be between ${startDateOnly} and ${endDateOnly}.`,
+      );
+    }
+
+    await bookingRepo.updateBookingById(booking_id, {
+      return_date: requestedDateOnly,
+    });
+    return bookingRepo.findBookingByIdBasic(booking_id);
+  },
+  async confirmEarlyReturn(booking_id, authUser) {
+    if (!authUser || authUser?.role !== "ADMIN")
+      throw new ApiError(401, "Unauthorized");
+
+    if (!booking_id) throw new ApiError(402, "Id is required!");
+
+    return sequelize.transaction(async (t) => {
+      const booking = await bookingRepo.findBookingByIdBasic(booking_id, {
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      if (!booking) throw new ApiError(404, "Booking Not Found!");
+
+      if (booking.status === "ENDED") {
+        throw new ApiError(409, "Booking is already ended.");
+      }
+
+      if (!["CONFIRMED", "RENEWED"].includes(booking.status)) {
+        throw new ApiError(
+          409,
+          "Only active bookings can be confirmed as early returned.",
+        );
+      }
+
+      const confirmedDateOnly = booking.return_date
+        ? String(booking.return_date).slice(0, 10)
+        : null;
+
+      if (!confirmedDateOnly) {
+        throw new ApiError(400, "No return date found to confirm.");
+      }
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(confirmedDateOnly)) {
+        throw new ApiError(400, "Return date must be in YYYY-MM-DD format.");
+      }
+
+      const startDateOnly = String(booking.start_date).slice(0, 10);
+      const endDateOnly = String(booking.end_date).slice(0, 10);
+      const todayDateOnly = new Date().toISOString().slice(0, 10);
+      if (confirmedDateOnly < startDateOnly || confirmedDateOnly > endDateOnly) {
+        throw new ApiError(
+          400,
+          `Return date must be between ${startDateOnly} and ${endDateOnly}.`,
+        );
+      }
+      if (confirmedDateOnly > todayDateOnly) {
+        throw new ApiError(400, "Return date cannot be in the future.");
+      }
+
+      await bookingRepo.updateBookingById(
+        booking.id,
+        {
+          status: "ENDED",
+          is_vacated: true,
+          return_date: confirmedDateOnly,
+          end_date: confirmedDateOnly,
+        },
+        { transaction: t },
+      );
+
+      await paymentService.cancelPendingPaymentsAfterDate(
+        booking.id,
+        confirmedDateOnly,
+        { transaction: t },
+      );
+
+      await storageUnitRepo.patchUnitStatus(
+        booking.unit_id,
+        {
+          status: "AVAILABLE",
+        },
+        { transaction: t },
+      );
+
+      return bookingRepo.findBookingByIdBasic(booking.id, { transaction: t });
+    });
+  },
+  async approveEarlyReturnRequest(booking_id, authUser) {
+    if (!authUser || authUser?.role !== "ADMIN")
+      throw new ApiError(401, "Unauthorized");
+
+    if (!booking_id) throw new ApiError(402, "Id is required!");
+
+    return sequelize.transaction(async (t) => {
+      const booking = await bookingRepo.findBookingByIdBasic(booking_id, {
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+      if (!booking) throw new ApiError(404, "Booking Not Found!");
+
+      if (!["CONFIRMED", "RENEWED"].includes(booking.status)) {
+        throw new ApiError(
+          409,
+          "Only active bookings can have early return approval.",
+        );
+      }
+
+      if (booking.is_vacated || booking.status === "ENDED") {
+        throw new ApiError(409, "Booking is already vacated.");
+      }
+
+      const approvedDateOnly = booking.return_date
+        ? String(booking.return_date).slice(0, 10)
+        : null;
+
+      if (!approvedDateOnly) {
+        throw new ApiError(400, "No requested return date found to approve.");
+      }
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(approvedDateOnly)) {
+        throw new ApiError(400, "Return date must be in YYYY-MM-DD format.");
+      }
+
+      const startDateOnly = String(booking.start_date).slice(0, 10);
+      const endDateOnly = String(booking.end_date).slice(0, 10);
+      if (approvedDateOnly < startDateOnly || approvedDateOnly > endDateOnly) {
+        throw new ApiError(
+          400,
+          `Return date must be between ${startDateOnly} and ${endDateOnly}.`,
+        );
+      }
+
+      await bookingRepo.updateBookingById(
+        booking.id,
+        { return_date: approvedDateOnly },
+        { transaction: t },
+      );
+
+      const updated = await bookingRepo.findBookingByIdBasic(booking.id, {
+        transaction: t,
+      });
+      return { approved: true, booking: updated };
+    });
   },
 };

@@ -59,6 +59,11 @@ export const paymentService = {
       options,
     );
   },
+  async cancelPendingPaymentsAfterDate(bookingId, date, options = {}) {
+    if (!bookingId) throw new ApiError(400, "Booking id is required!");
+    if (!date) throw new ApiError(400, "Date is required!");
+    return paymentRepo.cancelPendingPaymentsAfterDate(bookingId, date, options);
+  },
   async markPaymentAsPaid(id, options = {}) {
     return paymentRepo.updatePaymentById(
       id,

@@ -8,6 +8,15 @@ export const unitTypeRepo = {
       ...option,
     });
   },
+  async findTypeById(id, option = {}) {
+    return db.UnitTypes.findOne({
+      where: { id },
+      ...option,
+    });
+  },
+  async updateTypeById(id, data, option = {}) {
+    return db.UnitTypes.update(data, { where: { id }, ...option });
+  },
   async getTypesWithUnitStats(filter = {}, option = {}) {
     const now = new Date();
     const types = await db.UnitTypes.findAll({
@@ -52,7 +61,6 @@ export const unitTypeRepo = {
           unit_number: unit.unit_number,
           type_id: unit.type_id,
           status: unit.status,
-          unit_price: unit.unit_price,
           current_tenant: currentBooking?.user || null,
         };
       });
@@ -81,6 +89,7 @@ export const unitTypeRepo = {
         sqft: type.sqft,
         dimensions: type.dimensions,
         base_price: type.base_price,
+        adjusted_price: type.adjusted_price,
         ...counts,
         units,
       };

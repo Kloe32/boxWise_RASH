@@ -13,7 +13,12 @@ export const bookingRepo = {
       where: filters,
       order: [["id", "DESC"]],
       include: [
-        { model: db.Users, as: "user", required: true },
+        {
+          model: db.Users,
+          as: "user",
+          required: true,
+          attributes: { exclude: ["password_ecrypt"] },
+        },
         {
           model: db.StorageUnits,
           as: "unit",
@@ -52,7 +57,7 @@ export const bookingRepo = {
       ...options,
     });
   },
-  findExpiredPending(cutoff, options) {
+  findExpiredPending(cutoff, options = {}) {
     return db.Bookings.findAll({
       where: {
         status: "PENDING",
@@ -74,7 +79,6 @@ export const bookingRepo = {
     return db.Bookings.update(
       { status: "CANCELLED" },
       { where: { id: { [Op.in]: ids }, status: "PENDING" }, ...options },
-      ...options,
     );
   },
 
@@ -102,6 +106,9 @@ export const bookingRepo = {
       ],
       ...options,
     });
+  },
+  findBookingByIdBasic(id, options = {}) {
+    return db.Bookings.findByPk(id, options);
   },
   findBookingByUserId(user_id, options = {}) {
     return db.Bookings.findAll({

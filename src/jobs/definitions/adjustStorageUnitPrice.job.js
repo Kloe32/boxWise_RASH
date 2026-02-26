@@ -17,7 +17,6 @@ export async function adjustStorageUnitPrice() {
     ]);
 
     let updatedTypes = 0;
-    let updatedUnits = 0;
 
     for (const unitType of unitTypes) {
       const seasonalRow = await seasonalPricingRepo.getMultiplierById(
@@ -38,22 +37,19 @@ export async function adjustStorageUnitPrice() {
         supplyMultiplier: supplyFactor,
       });
 
-      const [affected] = await storageUnitRepo.updateUnitPriceByType(
+      const [affected] = await unitTypeRepo.updateTypeById(
         unitType.id,
-        nextUnitPrice,
+        { adjusted_price: nextUnitPrice },
         { transaction },
       );
 
       if (affected > 0) {
         updatedTypes += 1;
-        updatedUnits += affected;
       }
     }
-
     return {
       month: monthLabel,
       updatedTypes,
-      updatedUnits,
     };
   });
 }

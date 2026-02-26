@@ -1,13 +1,11 @@
 import { storageUnitRepo } from "../repositories/storage_unit.repo.js";
 import { ApiError } from "../utils/ApiError.js";
-
 const allow_status = ["AVAILABLE", "RESERVED", "OCCUPIED", "MAINTENANCE"];
 
 export const storageUnitService = {
   async getAllUnits(query) {
     const filters = {};
     const order = [];
-    if (query?.sort === "price_desc") order.push(["unit_price", "DESC"]);
     // default
     order.push(["type_id", "ASC"]);
     if (query?.type_id) filters.type_id = Number(query?.type_id);
@@ -57,8 +55,6 @@ export const storageUnitService = {
     const order = [];
     if (!authUser || authUser?.role !== "ADMIN")
       throw new ApiError(401, "Unauthorized herere!");
-
-    if (query?.sort === "price_desc") order.push(["unit_price", "DESC"]);
     order.push(["type_id", "ASC"]);
 
     if (query?.type_id) filters.type_id = Number(query?.type_id);

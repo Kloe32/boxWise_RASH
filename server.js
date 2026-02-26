@@ -15,7 +15,7 @@ async function start() {
   app.listen(PORT, () => {
     console.log(`🚀 Server is Listening on http://localhost:${PORT}`);
   });
-  // startJobs();
+  if (env.RUN_JOBS === "true") startJobs();
 }
 
 app.get("/", (req, res) => {

@@ -22,12 +22,14 @@ export function calculateFinalPrice(unitPrice, durationMonths) {
 
   const initialPayment = unitPrice * prepaidMonths + adminFee + gst;
 
-  const monthlyCharge = Number(unitPrice);
+  const monthlyCharge = Number(unitPrice).toFixed(2);
 
   return {
     subtotal: Number(subtotal.toFixed(2)),
+    gst_rate: `${gstRate * 100}%`,
     gst,
     total,
+    adminFee,
     breakdown: {
       initial_payment: initialPayment,
       recurring_months: recurringMonths,

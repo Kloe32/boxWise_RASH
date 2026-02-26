@@ -77,6 +77,7 @@ export const authService = {
         full_name: user.full_name,
         email: user.email,
         phone: user.phone,
+        address: user.address,
         role: user.role,
       },
     };

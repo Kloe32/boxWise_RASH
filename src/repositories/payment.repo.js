@@ -9,6 +9,13 @@ export const paymentRepo = {
   createPayments(payloads, options = {}) {
     return db.Payments.bulkCreate(payloads, options);
   },
+  findPaymentsByBookingId(id, options = {}) {
+    return db.Payments.findAll({
+      where: { booking_id: id },
+      order: [["due_date", "ASC"], ["id", "ASC"]],
+      ...options,
+    });
+  },
 
   updatePaymentByBookingId(id, data, options = {}) {
     return db.Payments.update(data, { where: { booking_id: id }, ...options });

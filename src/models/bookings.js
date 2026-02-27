@@ -58,6 +58,14 @@ export default class Bookings extends Model {
           allowNull: true,
           defaultValue: false,
         },
+        renewal_status: {
+          type: DataTypes.ENUM("NONE", "REQUESTED", "APPROVED", "REJECTED"),
+          allowNull: true,
+        },
+        renewal_requested_date: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,

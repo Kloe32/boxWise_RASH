@@ -31,6 +31,19 @@ const cancelBooking = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, result, `Status Updated!`));
 });
 
+const requestEarlyReturn = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const { requested_date } = req.body;
+  const result = await bookingService.requestEarlyReturn(
+    id,
+    new Date(requested_date),
+    req.user,
+  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, `Early return requested successfully!`));
+});
+
 const confirmEarlyReturn = asyncHandler(async (req, res) => {
   const id = req.params.id;
   const result = await bookingService.confirmEarlyReturn(id, req.user);
@@ -47,7 +60,6 @@ const approveEarlyReturnRequest = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, result, `Early return approved!`));
 });
 
-
 const getPendingBookingsWithDate = asyncHandler(async (req, res) => {
   const bookings = await bookingService.getPendingBookingsWithDate(req.user);
   return res
@@ -56,12 +68,37 @@ const getPendingBookingsWithDate = asyncHandler(async (req, res) => {
       new ApiResponse(200, bookings, `${bookings.length} Fetched Successfully`),
     );
 });
+
+const requestBookingRenewal = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const { additional_duration } = req.body;
+  const result = await bookingService.requestRenewal(
+    id,
+    parseInt(additional_duration, 10),
+    req.user,
+  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, `Renewal requested successfully!`));
+});
+
+const approveBookingRenewal = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const result = await bookingService.approveRenewal(id, req.user);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, `Renewal approved successfully!`));
+});
+
 export const bookingsController = {
   createBooking,
   getBookingDetails,
   confirmBooking,
   cancelBooking,
+  requestEarlyReturn,
   confirmEarlyReturn,
   approveEarlyReturnRequest,
   getPendingBookingsWithDate,
+  requestBookingRenewal,
+  approveBookingRenewal,
 };

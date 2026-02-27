@@ -31,14 +31,14 @@ const decryption = (encrytpedText) => {
 
 const comparison = (plainPassword, encryptedPassword) => {
   try {
-    console.log(
-      "Plain",
-      plainPassword,
-      "Encrypted Password",
-      encryptedPassword,
-    );
+    // console.log(
+    //   "Plain",
+    //   plainPassword,
+    //   "Encrypted Password",
+    //   encryptedPassword,
+    // );
     const decrypted = decryption(encryptedPassword);
-    console.log("decrypted", decrypted);
+    // console.log("decrypted", decrypted);
     return crypto.timingSafeEqual(
       Buffer.from(plainPassword),
       Buffer.from(decrypted),

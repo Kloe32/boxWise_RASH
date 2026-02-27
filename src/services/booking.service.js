@@ -6,6 +6,9 @@ import { storageUnitRepo } from "../repositories/storage_unit.repo.js";
 import { ApiError } from "../utils/ApiError.js";
 import { endDate, generateBookingId } from "../utils/helper.js";
 import { Op } from "sequelize";
+import { ca, se } from "date-fns/locale";
+import { unitTypeService } from "./unitType.service.js";
+import { unitTypeRepo } from "../repositories/unitType.repo.js";
 
 const availableStatuses = [
   "PENDING",
@@ -259,16 +262,11 @@ export const bookingService = {
     ).length;
     return { totalPending, todayPending, yesterdayPending };
   },
-  async requestEarlyVacate(booking_id, requestedDate, authUser) {
+  async requestEarlyReturn(booking_id, requestedDate, authUser) {
     if (!authUser) throw new ApiError(401, "Unauthorized");
 
     if (!booking_id) throw new ApiError(402, "Id is required!");
     if (!requestedDate) throw new ApiError(400, "requestedDate is required!");
-
-    const requestedDateOnly = String(requestedDate);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDateOnly)) {
-      throw new ApiError(400, "requestedDate must be in YYYY-MM-DD format.");
-    }
 
     const booking = await bookingRepo.findBookingById(booking_id);
     if (!booking) throw new ApiError(404, "Booking Not Found!");
@@ -276,13 +274,13 @@ export const bookingService = {
     if (booking.user_id !== authUser.id)
       throw new ApiError(
         403,
-        "You can only request early vacate for your own bookings.",
+        "You can only request early return for your own bookings.",
       );
 
     if (!["CONFIRMED", "RENEWED"].includes(booking.status)) {
       throw new ApiError(
         409,
-        "Early vacate can only be requested for active bookings.",
+        "Early return can only be requested for active bookings.",
       );
     }
 
@@ -296,7 +294,7 @@ export const bookingService = {
 
     const startDateOnly = String(booking.start_date).slice(0, 10);
     const endDateOnly = String(booking.end_date).slice(0, 10);
-    if (requestedDateOnly < startDateOnly || requestedDateOnly > endDateOnly) {
+    if (requestedDate < startDateOnly || requestedDate > endDateOnly) {
       throw new ApiError(
         400,
         `requestedDate must be between ${startDateOnly} and ${endDateOnly}.`,
@@ -304,7 +302,7 @@ export const bookingService = {
     }
 
     await bookingRepo.updateBookingById(booking_id, {
-      return_date: requestedDateOnly,
+      return_date: requestedDate,
     });
     return bookingRepo.findBookingByIdBasic(booking_id);
   },
@@ -332,28 +330,21 @@ export const bookingService = {
         );
       }
 
-      const confirmedDateOnly = booking.return_date
-        ? String(booking.return_date).slice(0, 10)
-        : null;
-
-      if (!confirmedDateOnly) {
+      if (!booking.return_date) {
         throw new ApiError(400, "No return date found to confirm.");
       }
 
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(confirmedDateOnly)) {
-        throw new ApiError(400, "Return date must be in YYYY-MM-DD format.");
-      }
-
-      const startDateOnly = String(booking.start_date).slice(0, 10);
-      const endDateOnly = String(booking.end_date).slice(0, 10);
       const todayDateOnly = new Date().toISOString().slice(0, 10);
-      if (confirmedDateOnly < startDateOnly || confirmedDateOnly > endDateOnly) {
+      if (
+        booking.return_date < booking.start_date ||
+        booking.return_date > booking.end_date
+      ) {
         throw new ApiError(
           400,
-          `Return date must be between ${startDateOnly} and ${endDateOnly}.`,
+          `Return date must be between ${booking.start_date} and ${booking.end_date}.`,
         );
       }
-      if (confirmedDateOnly > todayDateOnly) {
+      if (booking.return_date > todayDateOnly) {
         throw new ApiError(400, "Return date cannot be in the future.");
       }
 
@@ -362,15 +353,15 @@ export const bookingService = {
         {
           status: "ENDED",
           is_vacated: true,
-          return_date: confirmedDateOnly,
-          end_date: confirmedDateOnly,
+          return_date: booking.return_date,
+          end_date: booking.return_date,
         },
         { transaction: t },
       );
 
       await paymentService.cancelPendingPaymentsAfterDate(
         booking.id,
-        confirmedDateOnly,
+        booking.return_date,
         { transaction: t },
       );
 
@@ -391,55 +382,142 @@ export const bookingService = {
 
     if (!booking_id) throw new ApiError(402, "Id is required!");
 
-    return sequelize.transaction(async (t) => {
-      const booking = await bookingRepo.findBookingByIdBasic(booking_id, {
-        transaction: t,
-        lock: t.LOCK.UPDATE,
-      });
-      if (!booking) throw new ApiError(404, "Booking Not Found!");
+    const booking = await bookingRepo.findBookingByIdBasic(booking_id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!booking) throw new ApiError(404, "Booking Not Found!");
 
-      if (!["CONFIRMED", "RENEWED"].includes(booking.status)) {
-        throw new ApiError(
-          409,
-          "Only active bookings can have early return approval.",
-        );
-      }
+    if (!["CONFIRMED", "RENEWED"].includes(booking.status)) {
+      throw new ApiError(
+        409,
+        "Only active bookings can have early return approval.",
+      );
+    }
 
-      if (booking.is_vacated || booking.status === "ENDED") {
-        throw new ApiError(409, "Booking is already vacated.");
-      }
+    if (booking.is_vacated || booking.status === "ENDED") {
+      throw new ApiError(409, "Booking is already vacated.");
+    }
 
-      const approvedDateOnly = booking.return_date
-        ? String(booking.return_date).slice(0, 10)
-        : null;
+    const approvedDateOnly = booking.return_date
+      ? String(booking.return_date).slice(0, 10)
+      : null;
 
-      if (!approvedDateOnly) {
-        throw new ApiError(400, "No requested return date found to approve.");
-      }
+    if (!approvedDateOnly) {
+      throw new ApiError(400, "No requested return date found to approve.");
+    }
 
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(approvedDateOnly)) {
-        throw new ApiError(400, "Return date must be in YYYY-MM-DD format.");
-      }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(approvedDateOnly)) {
+      throw new ApiError(400, "Return date must be in YYYY-MM-DD format.");
+    }
 
-      const startDateOnly = String(booking.start_date).slice(0, 10);
-      const endDateOnly = String(booking.end_date).slice(0, 10);
-      if (approvedDateOnly < startDateOnly || approvedDateOnly > endDateOnly) {
-        throw new ApiError(
-          400,
-          `Return date must be between ${startDateOnly} and ${endDateOnly}.`,
-        );
-      }
+    const startDateOnly = String(booking.start_date).slice(0, 10);
+    const endDateOnly = String(booking.end_date).slice(0, 10);
+    if (approvedDateOnly < startDateOnly || approvedDateOnly > endDateOnly) {
+      throw new ApiError(
+        400,
+        `Return date must be between ${startDateOnly} and ${endDateOnly}.`,
+      );
+    }
+    return { approved: true };
+  },
+  async requestRenewal(booking_id, duration, authUser) {
+    if (!authUser) throw new ApiError(401, "Unauthorized");
 
-      await bookingRepo.updateBookingById(
-        booking.id,
-        { return_date: approvedDateOnly },
-        { transaction: t },
+    if (!booking_id) throw new ApiError(402, "Id is required!");
+
+    const booking = await bookingRepo.findBookingById(booking_id);
+    if (!booking) throw new ApiError(404, "Booking Not Found!");
+
+    if (booking.user_id !== authUser.id)
+      throw new ApiError(
+        403,
+        "You can only request renewal for your own bookings.",
       );
 
-      const updated = await bookingRepo.findBookingByIdBasic(booking.id, {
+    if (booking.status !== "CONFIRMED") {
+      throw new ApiError(
+        409,
+        "Only Active bookings can be requested for renewal.",
+      );
+    }
+    if (booking.renewal_status === "REQUESTED") {
+      throw new ApiError(
+        409,
+        "Renewal has already been requested for this booking.",
+      );
+    }
+    if (booking.is_vacated) {
+      throw new ApiError(409, "Cannot renew a vacated booking.");
+    }
+
+    const requestedEndDate = endDate(booking.end_date, duration);
+    if (isNaN(requestedEndDate.getTime())) {
+      throw new ApiError(400, "Invalid end date calculated from duration.");
+    }
+
+    const result = await bookingRepo.updateBookingById(
+      booking_id,
+      {
+        renewal_status: "REQUESTED",
+        renewal_requested_date: requestedEndDate,
+      },
+      { returning: true },
+    );
+
+    if (!result || result.length === 0) {
+      throw new ApiError(500, "Failed to update booking for renewal.");
+    }
+
+    return result[1][0];
+  },
+  async approveRenewal(booking_id, authUser) {
+    if (!authUser || authUser?.role !== "ADMIN")
+      throw new ApiError(401, "Unauthorized");
+
+    if (!booking_id) throw new ApiError(402, "Id is required!");
+
+    const booking = await bookingRepo.findBookingById(booking_id);
+    if (!booking) throw new ApiError(404, "Booking Not Found!");
+
+    if (booking.renewal_status !== "REQUESTED") {
+      throw new ApiError(
+        409,
+        "Only bookings with renewal requested can be approved.",
+      );
+    }
+
+    const updatedEndDate = booking.renewal_requested_date;
+    if (!updatedEndDate || isNaN(new Date(updatedEndDate).getTime())) {
+      throw new ApiError(400, "Invalid renewal end date.");
+    }
+    const start = new Date(booking.end_date);
+    const end = new Date(updatedEndDate);
+    const durationMonth =
+      end.getMonth() -
+      start.getMonth() +
+      12 * (end.getFullYear() - start.getFullYear());
+    return await sequelize.transaction(async (t) => {
+      const unitType = await unitTypeRepo.findTypeById(booking.unit.type_id, {
         transaction: t,
       });
-      return { approved: true, booking: updated };
+      const unitPrice = Number(unitType?.adjusted_price ?? 0);
+      const receipt = calculateFinalPrice(unitPrice, durationMonth);
+      const paymentStartDate = new Date(booking.end_date);
+      paymentStartDate.setMonth(paymentStartDate.getMonth() + 1);
+      await paymentService.createRenewalPayment(
+        { bookingId: booking_id, startDate: paymentStartDate, receipt },
+        { transaction: t },
+      );
+      await bookingRepo.updateBookingById(
+        booking_id,
+        {
+          status: "RENEWED",
+          end_date: updatedEndDate,
+          renewal_status: "APPROVED",
+        },
+        { returning: true, transaction: t },
+      );
     });
   },
 };

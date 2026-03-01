@@ -17,4 +17,5 @@ export const env = {
   MAILTRAP_SMTP_PORT: process.env.MAILTRAP_SMTP_PORT,
   MAILTRAP_SMTP_USER: process.env.MAILTRAP_SMTP_USER,
   MAILTRAP_SMTP_PASS: process.env.MAILTRAP_SMTP_PASS,
+  RUN_JOBS: process.env.RUN_JOBS,
 };

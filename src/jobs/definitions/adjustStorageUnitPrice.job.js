@@ -36,6 +36,12 @@ export async function adjustStorageUnitPrice() {
         seasonalMultiplier: seasonalFactor,
         supplyMultiplier: supplyFactor,
       });
+      const currentUnitPrice = Number(unitType.adjusted_price ?? 0);
+
+      // If occupancy (and other factors) produce the same price, skip update.
+      if (nextUnitPrice === currentUnitPrice) {
+        continue;
+      }
 
       const [affected] = await unitTypeRepo.updateTypeById(
         unitType.id,

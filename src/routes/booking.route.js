@@ -7,7 +7,7 @@ const router = Router();
 router.post("/", requireAuth, bookingsController.createBooking);
 router.get("/", requireAuth, bookingsController.getBookingDetails);
 router.post("/confirm/:id", requireAuth, bookingsController.confirmBooking);
-router.put(
+router.post(
   "/request-early-return/:id",
   requireAuth,
   bookingsController.requestEarlyReturn,
@@ -17,12 +17,12 @@ router.post(
   requireAuth,
   bookingsController.approveEarlyReturnRequest,
 );
-router.put(
-  "/confirm-early-return/:id",
+router.post(
+  "/confirm-booking-ending/:id",
   requireAuth,
-  bookingsController.confirmEarlyReturn,
+  bookingsController.confirmBookingEnding,
 );
-router.put("/cancel/:id", requireAuth, bookingsController.cancelBooking);
+router.post("/cancel/:id", requireAuth, bookingsController.cancelBooking);
 router.get(
   "/pending-with-date",
   requireAuth,
@@ -33,7 +33,7 @@ router.post(
   requireAuth,
   bookingsController.requestBookingRenewal,
 );
-router.put(
+router.post(
   "/approve-renewal/:id",
   requireAuth,
   bookingsController.approveBookingRenewal,

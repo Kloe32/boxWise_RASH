@@ -13,4 +13,8 @@ export const env = {
   JWT_EXPIRY: process.env.JWT_EXPIRY,
   GST_RATE: process.env.GST_RATE,
   ADMIN_FEE: process.env.ADMIN_FEE,
+  MAILTRAP_SMTP_HOST: process.env.MAILTRAP_SMTP_HOST,
+  MAILTRAP_SMTP_PORT: process.env.MAILTRAP_SMTP_PORT,
+  MAILTRAP_SMTP_USER: process.env.MAILTRAP_SMTP_USER,
+  MAILTRAP_SMTP_PASS: process.env.MAILTRAP_SMTP_PASS,
 };

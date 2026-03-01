@@ -49,6 +49,7 @@ export default class Bookings extends Model {
             "CONFIRMED",
             "CANCELLED",
             "RENEWED",
+            "VACATING",
             "ENDED",
           ),
           allowNull: true,

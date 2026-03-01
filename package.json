@@ -2,7 +2,6 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
-    "daisyui": "^5.5.18",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
@@ -12,8 +11,7 @@
     "mysql2": "^3.16.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.1",
-    "nodemon": "^3.1.11",
-    "redis": "^5.10.0"
+    "nodemon": "^3.1.11"
   },
   "name": "boxwise-rash",
   "version": "1.0.0",

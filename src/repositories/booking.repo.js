@@ -37,7 +37,7 @@ export const bookingRepo = {
     });
   },
 
-  async getEndedBookingsWithinRange({ start, end }, options = {}) {
+  getEndedBookingsWithinRange({ start, end }, options = {}) {
     return db.Bookings.findAll({
       where: {
         status: "ENDED",
@@ -51,6 +51,42 @@ export const bookingRepo = {
           model: db.StorageUnits,
           as: "unit", // must match init-models alias
           attributes: ["id", "type_id"],
+          required: true,
+        },
+      ],
+      ...options,
+    });
+  },
+
+  findBookingsWithPaymentDue(options = {}) {
+    const today = new Date();
+    const targetDate = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+    return db.Bookings.findAll({
+      where: {
+        status: { [Op.in]: ["CONFIRMED", "RENEWED"] },
+      },
+      include: [
+        {
+          model: db.Payments,
+          as: "payments",
+          required: true,
+          where: {
+            payment_status: "PENDING",
+            due_date: {
+              [Op.gte]: today,
+              [Op.lte]: targetDate,
+            },
+          },
+        },
+        {
+          model: db.Users,
+          as: "user",
+          required: true,
+          attributes: { exclude: ["password_ecrypt"] },
+        },
+        {
+          model: db.StorageUnits,
+          as: "unit",
           required: true,
         },
       ],
@@ -100,7 +136,7 @@ export const bookingRepo = {
         {
           model: db.Payments,
           as: "payments",
-          required: true,
+          required: false,
           where: { payment_status: "PENDING" },
         },
       ],
@@ -147,5 +183,50 @@ export const bookingRepo = {
       },
       ...options,
     });
+  },
+
+  /**
+   * Find CONFIRMED / RENEWED bookings whose end_date is exactly
+   * `daysAhead` days from now, with no renewal requested and no early return.
+   */
+  findApproachingEndBookings(targetDate, options = {}) {
+    return db.Bookings.findAll({
+      where: {
+        status: { [Op.in]: ["CONFIRMED", "RENEWED"] },
+        end_date: targetDate,
+        renewal_status: { [Op.in]: ["NONE", "REJECTED"] },
+        return_date: { [Op.is]: null },
+      },
+      include: [
+        {
+          model: db.Users,
+          as: "user",
+          required: true,
+          attributes: { exclude: ["password_ecrypt"] },
+        },
+        {
+          model: db.StorageUnits,
+          as: "unit",
+          required: true,
+        },
+      ],
+      ...options,
+    });
+  },
+
+  /**
+   * Bulk-update bookings to VACATING status.
+   */
+  bulkVacate(ids, options = {}) {
+    return db.Bookings.update(
+      { status: "VACATING" },
+      {
+        where: {
+          id: { [Op.in]: ids },
+          status: { [Op.in]: ["CONFIRMED", "RENEWED"] },
+        },
+        ...options,
+      },
+    );
   },
 };

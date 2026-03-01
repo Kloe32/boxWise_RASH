@@ -6,6 +6,15 @@ import { startJobs } from "./src/jobs/index.js";
 
 const app = express();
 const PORT = env.PORT || 8080;
+app.use(
+  cors({
+    origin: [
+      "http://localhost:8110",
+      "https://box-wise-client.vercel.app",
+      "http://localhost:3030",
+    ],
+  }),
+);
 app.use(express.json());
 
 async function start() {
@@ -26,8 +35,6 @@ start().catch((err) => {
   console.error("❌Startup Error:", err.message);
   process.exit(1);
 });
-
-app.use(cors("http://localhost:8110"));
 
 //Routes
 import authRouter from "./src/routes/auth.route.js";

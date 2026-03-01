@@ -24,7 +24,7 @@ export default class Payments extends Model {
           allowNull: false,
         },
         description: {
-          type: DataTypes.STRING(30),
+          type: DataTypes.STRING(50),
           allowNull: true,
         },
         due_date: {
@@ -37,10 +37,6 @@ export default class Payments extends Model {
         },
         payment_status: {
           type: DataTypes.ENUM("PENDING", "PAID", "OVERDUE", "FAILED"),
-          allowNull: true,
-        },
-        payment_proof: {
-          type: DataTypes.TEXT,
           allowNull: true,
         },
         payment_method: {

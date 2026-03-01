@@ -12,6 +12,8 @@ export function requireAuth(req, res, next) {
     const payload = jwt.verify(token, env.JWT_SECRET);
     req.user = {
       id: payload.sub,
+      email: payload.email,
+      full_name: payload.full_name,
       role: payload.role,
     };
     return next();

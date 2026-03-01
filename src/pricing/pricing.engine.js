@@ -31,7 +31,7 @@ export function calculateFinalPrice(unitPrice, durationMonths) {
     total,
     adminFee,
     breakdown: {
-      initial_payment: initialPayment,
+      initial_payment: initialPayment.toFixed(2),
       recurring_months: recurringMonths,
       monthly_charge: monthlyCharge,
     },

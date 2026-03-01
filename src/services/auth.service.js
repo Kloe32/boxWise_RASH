@@ -37,7 +37,12 @@ export const authService = {
       role: role,
     });
     if (!user) throw new ApiError(500, "Internal Server Error");
-    const token = signToken({ sub: user?.id, role: user?.role });
+    const token = signToken({
+      sub: user?.id,
+      role: user?.role,
+      email: user?.email,
+      full_name: user?.full_name,
+    });
 
     return {
       token,

@@ -25,6 +25,15 @@ export function generateBookingId(unitId) {
   return `BK-${today}-U${paddedUnit}-${random}`;
 }
 
+export const formatDate = (value) =>
+  value
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+      }).format(new Date(value))
+    : "N/A";
+
 // ---------- rules ----------
 export function demandMultiplier(avgOcc) {
   if (avgOcc >= 0.8)

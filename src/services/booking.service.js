@@ -9,6 +9,16 @@ import { Op } from "sequelize";
 import { ca, se } from "date-fns/locale";
 import { unitTypeService } from "./unitType.service.js";
 import { unitTypeRepo } from "../repositories/unitType.repo.js";
+import {
+  bookingConfirmedMailgenContent,
+  bookingCreatedInfoMailgenContent,
+  bookingCancelledMailgenContent,
+  sendEmail,
+  earlyMoveOutApprovalMailgenContent,
+  bookingEndedMailgenContent,
+  renewalRequestedMailgenContent,
+  renewalApprovedMailgenContent,
+} from "../utils/mail.js";
 
 const availableStatuses = [
   "PENDING",
@@ -85,7 +95,6 @@ export const bookingService = {
       await unit.update({ status: "RESERVED" }, { transaction: t });
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 5);
-
       await paymentService.createInitialPayment(
         {
           bookingId: id,
@@ -95,6 +104,35 @@ export const bookingService = {
         },
         { transaction: t },
       );
+      // send email notification about the booking creation and pending payment
+
+      try {
+        const emailContent = bookingCreatedInfoMailgenContent({
+          customerName: authUser.full_name,
+          bookingId: booking.id,
+          unitLabel: unit.unit_number,
+          startDate: start.toISOString().slice(0, 10),
+          endDate: end.toISOString().slice(0, 10),
+          receipt,
+          duration,
+          initialPaymentDueDate: dueDate.toISOString().slice(0, 10),
+          officeAddress:
+            "BoxWise Self-Storage (Main Office) - Bukit Batok Street 10, Singapore 621212",
+          officeBankAccount: "DBS Bank - BoxWise Bank Account - 012-345-6789",
+          keyCollectionInstructions:
+            "After payment, you can collect your access card and keys from our main office during business hours on the move-in date. Please bring a copy of this email and a valid ID for verification. If you have any questions, feel free to contact us at support@boxwise.asia",
+        });
+        await sendEmail({
+          email: authUser.email,
+          subject: "Unit Booked! Please Complete Your Payment",
+          mailgenContent: emailContent,
+        });
+      } catch (err) {
+        console.error(
+          `⚠️ Failed to send booking-created email for ${booking.id}:`,
+          err.message,
+        );
+      }
 
       return { booking, receipt };
     });
@@ -139,11 +177,11 @@ export const bookingService = {
 
       const recurringMonths = receipt?.breakdown?.recurring_months ?? 0;
       if (recurringMonths === 0) return { booking, receipt, created: 0 };
-
       await paymentService.createRecurringPayments(
         {
           bookingId: booking.id,
           startDate: start,
+          method: booking.payments[0].payment_method,
           recurringMonths,
           monthlyCharge: receipt?.breakdown?.monthly_charge ?? 0,
         },
@@ -165,6 +203,25 @@ export const bookingService = {
       const updated = await bookingRepo.findBookingById(booking.id, {
         transaction: t,
       });
+      const emailContent = bookingConfirmedMailgenContent({
+        customerName: updated.user.full_name,
+        bookingId: updated.id,
+        unitLabel: updated.unit.unit_number,
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+      });
+      try {
+        await sendEmail({
+          email: updated.user.email,
+          subject: "Booking Confirmed! Welcome to BoxWise",
+          mailgenContent: emailContent,
+        });
+      } catch (err) {
+        console.error(
+          `⚠️ Failed to send booking-confirmed email for ${updated.id}:`,
+          err.message,
+        );
+      }
       return { updated, receipt, created: recurringMonths };
     });
   },
@@ -199,12 +256,11 @@ export const bookingService = {
 
     return bookingRepo.findAllBooking(filters);
   },
-  async cancelBooking(booking_id, status, authUser) {
+  async cancelBooking(booking_id, authUser) {
     if (!authUser) throw new ApiError(401, "Unauthorized");
 
     if (!booking_id) throw new ApiError(402, "Id is required!");
-    if (!status) throw new ApiError(402, "Status is required!");
-    sequelize.transaction(async (t) => {
+    return sequelize.transaction(async (t) => {
       const booking = await bookingRepo.findBookingById(booking_id, {
         transaction: t,
       });
@@ -212,7 +268,7 @@ export const bookingService = {
 
       await bookingRepo.updateBookingById(
         booking.id,
-        { status: status },
+        { status: "CANCELLED" },
         { transaction: t },
       );
       await storageUnitRepo.patchUnitStatus(
@@ -225,6 +281,24 @@ export const bookingService = {
       await paymentService.cancelPaymentsByBookingId(booking.id, {
         transaction: t,
       });
+      const emailContent = bookingCancelledMailgenContent({
+        customerName: booking.user.full_name,
+        bookingId: booking.id,
+        unitLabel: booking.unit.unit_number,
+      });
+      try {
+        await sendEmail({
+          email: booking.user.email,
+          subject: "Booking Cancelled - BoxWise",
+          mailgenContent: emailContent,
+        });
+      } catch (err) {
+        console.error(
+          `⚠️ Failed to send booking-cancelled email for ${booking.id}:`,
+          err.message,
+        );
+      }
+
       return await bookingRepo.findBookingById(booking.id, {
         transaction: t,
       });
@@ -233,9 +307,25 @@ export const bookingService = {
   async getPendingBookingsWithDate(authUser) {
     if (!authUser || authUser?.role !== "ADMIN")
       throw new ApiError(401, "Unauthorized");
-    const d = new Date();
-    const startOfDay = new Date(d.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(d.setHours(23, 59, 59, 999));
+    const now = new Date();
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+    const endOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
 
     const totalPending = await bookingRepo.findAllBooking({
       status: "PENDING",
@@ -250,13 +340,15 @@ export const bookingService = {
         },
       })
     ).length;
-
+    console.log("HEYyyyyyyyyy--------------------");
+    const yesterdayStart = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000);
+    const yesterdayEnd = new Date(endOfDay.getTime() - 24 * 60 * 60 * 1000);
     const yesterdayPending = (
       await bookingRepo.findAllBooking({
         status: "PENDING",
         created_at: {
-          [Op.gte]: new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000),
-          [Op.lte]: new Date(endOfDay.getTime() - 24 * 60 * 60 * 1000),
+          [Op.gte]: yesterdayStart,
+          [Op.lte]: yesterdayEnd,
         },
       })
     ).length;
@@ -304,9 +396,9 @@ export const bookingService = {
     await bookingRepo.updateBookingById(booking_id, {
       return_date: requestedDate,
     });
-    return bookingRepo.findBookingByIdBasic(booking_id);
+    return bookingRepo.findBookingById(booking_id);
   },
-  async confirmEarlyReturn(booking_id, authUser) {
+  async confirmBookingEnding(booking_id, authUser) {
     if (!authUser || authUser?.role !== "ADMIN")
       throw new ApiError(401, "Unauthorized");
 
@@ -323,48 +415,33 @@ export const bookingService = {
         throw new ApiError(409, "Booking is already ended.");
       }
 
-      if (!["CONFIRMED", "RENEWED"].includes(booking.status)) {
+      if (booking.status !== "VACATING") {
         throw new ApiError(
           409,
-          "Only active bookings can be confirmed as early returned.",
+          "Only bookings with status 'VACATING' can be confirmed as ended.",
         );
       }
 
-      if (!booking.return_date) {
-        throw new ApiError(400, "No return date found to confirm.");
-      }
-
-      const todayDateOnly = new Date().toISOString().slice(0, 10);
-      if (
-        booking.return_date < booking.start_date ||
-        booking.return_date > booking.end_date
-      ) {
-        throw new ApiError(
-          400,
-          `Return date must be between ${booking.start_date} and ${booking.end_date}.`,
-        );
-      }
-      if (booking.return_date > todayDateOnly) {
-        throw new ApiError(400, "Return date cannot be in the future.");
-      }
+      // Use return_date if set (early return), otherwise use today's date
+      const effectiveReturnDate =
+        booking.return_date || new Date().toISOString().slice(0, 10);
 
       await bookingRepo.updateBookingById(
         booking.id,
         {
           status: "ENDED",
           is_vacated: true,
-          return_date: booking.return_date,
-          end_date: booking.return_date,
+          return_date: effectiveReturnDate,
+          end_date: effectiveReturnDate,
         },
         { transaction: t },
       );
 
       await paymentService.cancelPendingPaymentsAfterDate(
         booking.id,
-        booking.return_date,
+        effectiveReturnDate,
         { transaction: t },
       );
-
       await storageUnitRepo.patchUnitStatus(
         booking.unit_id,
         {
@@ -372,6 +449,30 @@ export const bookingService = {
         },
         { transaction: t },
       );
+
+      // Fetch full booking with user + unit for the email
+      const fullBooking = await bookingRepo.findBookingById(booking.id, {
+        transaction: t,
+      });
+
+      const emailContent = bookingEndedMailgenContent({
+        customerName: fullBooking?.user?.full_name,
+        unitLabel: fullBooking?.unit?.unit_number,
+        endDate: effectiveReturnDate,
+      });
+
+      try {
+        await sendEmail({
+          email: fullBooking?.user?.email,
+          subject: "Booking Ended - BoxWise",
+          mailgenContent: emailContent,
+        });
+      } catch (err) {
+        console.error(
+          `⚠️ Failed to send booking-ended email for ${booking.id}:`,
+          err.message,
+        );
+      }
 
       return bookingRepo.findBookingByIdBasic(booking.id, { transaction: t });
     });
@@ -382,12 +483,8 @@ export const bookingService = {
 
     if (!booking_id) throw new ApiError(402, "Id is required!");
 
-    const booking = await bookingRepo.findBookingByIdBasic(booking_id, {
-      transaction: t,
-      lock: t.LOCK.UPDATE,
-    });
+    const booking = await bookingRepo.findBookingById(booking_id);
     if (!booking) throw new ApiError(404, "Booking Not Found!");
-
     if (!["CONFIRMED", "RENEWED"].includes(booking.status)) {
       throw new ApiError(
         409,
@@ -399,27 +496,60 @@ export const bookingService = {
       throw new ApiError(409, "Booking is already vacated.");
     }
 
-    const approvedDateOnly = booking.return_date
-      ? String(booking.return_date).slice(0, 10)
-      : null;
-
-    if (!approvedDateOnly) {
-      throw new ApiError(400, "No requested return date found to approve.");
+    const return_date = booking.return_date || null;
+    if (!return_date) {
+      throw new ApiError(400, "No return date found to approve.");
     }
+    const approvedDateOnly = new Date(return_date);
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(approvedDateOnly)) {
-      throw new ApiError(400, "Return date must be in YYYY-MM-DD format.");
-    }
-
-    const startDateOnly = String(booking.start_date).slice(0, 10);
-    const endDateOnly = String(booking.end_date).slice(0, 10);
-    if (approvedDateOnly < startDateOnly || approvedDateOnly > endDateOnly) {
+    // Check for outstanding payments due BEFORE the return date
+    const outstandingPayments = booking.payments.filter(
+      (p) => new Date(p.due_date) <= approvedDateOnly,
+    );
+    if (outstandingPayments.length > 0) {
       throw new ApiError(
-        400,
-        `Return date must be between ${startDateOnly} and ${endDateOnly}.`,
+        409,
+        `There ${outstandingPayments.length === 1 ? "is" : "are"} ${outstandingPayments.length} outstanding payment(s) due before the return date. Please settle them before approving.`,
       );
     }
-    return { approved: true };
+
+    // Wrap status update + payment cancellation in a transaction
+    return sequelize.transaction(async (t) => {
+      // Flag booking as VACATING
+      await bookingRepo.updateBookingById(
+        booking_id,
+        { status: "VACATING" },
+        { transaction: t },
+      );
+
+      // Cancel any PENDING payments due AFTER the return date
+      await paymentService.cancelPendingPaymentsAfterDate(
+        booking_id,
+        return_date,
+        { transaction: t },
+      );
+
+      const emailContent = earlyMoveOutApprovalMailgenContent({
+        customerName: booking.user.full_name,
+        unitLabel: booking.unit.unit_number,
+        approvedReturnDate: approvedDateOnly,
+        endDate: booking.end_date,
+      });
+      try {
+        await sendEmail({
+          email: booking.user.email,
+          subject: "Early Move-Out Approved - BoxWise",
+          mailgenContent: emailContent,
+        });
+      } catch (err) {
+        console.error(
+          `⚠️ Failed to send early-move-out email for ${booking_id}:`,
+          err.message,
+        );
+      }
+
+      return { approved: true };
+    });
   },
   async requestRenewal(booking_id, duration, authUser) {
     if (!authUser) throw new ApiError(401, "Unauthorized");
@@ -469,6 +599,26 @@ export const bookingService = {
       throw new ApiError(500, "Failed to update booking for renewal.");
     }
 
+    try {
+      const emailContent = renewalRequestedMailgenContent({
+        customerName: booking.user.full_name,
+        bookingId: booking.id,
+        unitLabel: booking.unit.unit_number,
+        currentEndDate: new Date(booking.end_date),
+        requestedEndDate,
+      });
+      await sendEmail({
+        email: booking.user.email,
+        subject: `Renewal Requested for Unit ${booking.unit.unit_number} - BoxWise`,
+        mailgenContent: emailContent,
+      });
+    } catch (err) {
+      console.error(
+        `⚠️ Failed to send renewal-requested email for ${booking.id}:`,
+        err.message,
+      );
+    }
+
     return result[1][0];
   },
   async approveRenewal(booking_id, authUser) {
@@ -505,7 +655,7 @@ export const bookingService = {
       const receipt = calculateFinalPrice(unitPrice, durationMonth);
       const paymentStartDate = new Date(booking.end_date);
       paymentStartDate.setMonth(paymentStartDate.getMonth() + 1);
-      await paymentService.createRenewalPayment(
+      const newPayments = await paymentService.createRenewalPayment(
         { bookingId: booking_id, startDate: paymentStartDate, receipt },
         { transaction: t },
       );
@@ -518,6 +668,28 @@ export const bookingService = {
         },
         { returning: true, transaction: t },
       );
+
+      try {
+        const emailContent = renewalApprovedMailgenContent({
+          customerName: booking.user.full_name,
+          bookingId: booking.id,
+          unitLabel: booking.unit.unit_number,
+          newEndDate: new Date(updatedEndDate),
+          payments: newPayments,
+        });
+        await sendEmail({
+          email: booking.user.email,
+          subject: `Renewal Approved for Unit ${booking.unit.unit_number} - BoxWise`,
+          mailgenContent: emailContent,
+        });
+      } catch (err) {
+        console.error(
+          `⚠️ Failed to send renewal-approved email for ${booking.id}:`,
+          err.message,
+        );
+      }
+
+      return { renewed: true, newPayments };
     });
   },
 };

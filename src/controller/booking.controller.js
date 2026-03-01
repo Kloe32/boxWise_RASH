@@ -26,17 +26,17 @@ const confirmBooking = asyncHandler(async (req, res) => {
 
 const cancelBooking = asyncHandler(async (req, res) => {
   const id = req.params.id;
-  const { status } = req.query;
-  const result = await bookingService.cancelBooking(id, status, req.user);
+  const result = await bookingService.cancelBooking(id, req.user);
   return res.status(200).json(new ApiResponse(200, result, `Status Updated!`));
 });
 
 const requestEarlyReturn = asyncHandler(async (req, res) => {
   const id = req.params.id;
   const { requested_date } = req.body;
+  console.log(requested_date);
   const result = await bookingService.requestEarlyReturn(
     id,
-    new Date(requested_date),
+    requested_date,
     req.user,
   );
   return res
@@ -44,9 +44,9 @@ const requestEarlyReturn = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, result, `Early return requested successfully!`));
 });
 
-const confirmEarlyReturn = asyncHandler(async (req, res) => {
+const confirmBookingEnding = asyncHandler(async (req, res) => {
   const id = req.params.id;
-  const result = await bookingService.confirmEarlyReturn(id, req.user);
+  const result = await bookingService.confirmBookingEnding(id, req.user);
   return res
     .status(200)
     .json(new ApiResponse(200, result, `Early return confirmed!`));
@@ -61,6 +61,7 @@ const approveEarlyReturnRequest = asyncHandler(async (req, res) => {
 });
 
 const getPendingBookingsWithDate = asyncHandler(async (req, res) => {
+
   const bookings = await bookingService.getPendingBookingsWithDate(req.user);
   return res
     .status(200)
@@ -96,9 +97,9 @@ export const bookingsController = {
   confirmBooking,
   cancelBooking,
   requestEarlyReturn,
-  confirmEarlyReturn,
   approveEarlyReturnRequest,
   getPendingBookingsWithDate,
   requestBookingRenewal,
   approveBookingRenewal,
+  confirmBookingEnding,
 };

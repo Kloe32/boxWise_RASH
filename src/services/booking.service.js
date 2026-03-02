@@ -340,7 +340,6 @@ export const bookingService = {
         },
       })
     ).length;
-    console.log("HEYyyyyyyyyy--------------------");
     const yesterdayStart = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000);
     const yesterdayEnd = new Date(endOfDay.getTime() - 24 * 60 * 60 * 1000);
     const yesterdayPending = (

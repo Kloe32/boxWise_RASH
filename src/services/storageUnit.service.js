@@ -25,7 +25,9 @@ export const storageUnitService = {
     return units;
   },
 
-  async updateUnitStatus(id, payload) {
+  async updateUnitStatus(id, payload, authUser) {
+    if (!authUser || authUser?.role !== "ADMIN")
+      throw new ApiError(401, "Unauthorized!");
     const update = {};
     const unit = await storageUnitRepo.findUnitById(id);
     if (!unit) throw new ApiError(404, "Unit Not Found!");

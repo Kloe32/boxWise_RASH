@@ -74,7 +74,12 @@ export const authService = {
     const ok = security.comparison(password, user.password_ecrypt);
     if (!ok) throw new ApiError(401, "Wrong Password!");
 
-    const token = signToken({ sub: user.id, role: user.role });
+    const token = signToken({
+      sub: user.id,
+      role: user.role,
+      email: user.email,
+      full_name: user.full_name,
+    });
     return {
       token,
       user: {
@@ -86,33 +91,5 @@ export const authService = {
         role: user.role,
       },
     };
-  },
-
-  async getDetail(id) {
-    const detail = await authRepo.findUserById(id);
-    if (!detail) throw new ApiError(404, "User Not Found!");
-    return detail;
-  },
-
-  async updateUser(id, payload) {
-    const user = await authRepo.findUserById(id);
-    if (!user) throw new ApiError(404, "User does not exist!");
-
-    const updates = {};
-
-    if (payload.full_name !== undefined) updates.full_name = payload.full_name;
-    if (payload.phone !== undefined) updates.phone = payload.phone;
-    if (payload.address !== undefined) updates.address = payload.address;
-    if (payload.role !== undefined) {
-      if (!["ADMIN", "CUSTOMER"].includes(payload.role))
-        throw new ApiError(400, "Invalid Role!");
-      updates.role = payload.role;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      throw new ApiError(400, "NO valid field to update.");
-    }
-    await authRepo.updateUserById(id, updates);
-    return authRepo.findUserById(id);
   },
 };

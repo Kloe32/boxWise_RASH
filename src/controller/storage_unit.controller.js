@@ -9,10 +9,13 @@ const getAllUnits = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, units, `${units.length} Unit Fetched!`));
 });
 
-
 const updateUnitStatus = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
-  const result = await storageUnitService.updateUnitStatus(id, req.body);
+  const result = await storageUnitService.updateUnitStatus(
+    id,
+    req.body,
+    req.user,
+  );
   return res
     .status(200)
     .json(new ApiResponse(200, result, "Status Successfully Updated!"));

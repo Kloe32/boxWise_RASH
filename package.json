@@ -19,6 +19,7 @@
   "main": "server.js",
   "scripts": {
     "start": "nodemon server.js",
+    "emailTest": "node src/seeds/mailTest.js",
     "jobs": "node src/jobs/worker.js",
     "seed": "node src/seeds/seed.js",
     "test": "node --experimental-vm-modules node_modules/.bin/jest --verbose"

@@ -33,7 +33,6 @@ const cancelBooking = asyncHandler(async (req, res) => {
 const requestEarlyReturn = asyncHandler(async (req, res) => {
   const id = req.params.id;
   const { requested_date } = req.body;
-  console.log(requested_date);
   const result = await bookingService.requestEarlyReturn(
     id,
     requested_date,
@@ -61,7 +60,6 @@ const approveEarlyReturnRequest = asyncHandler(async (req, res) => {
 });
 
 const getPendingBookingsWithDate = asyncHandler(async (req, res) => {
-
   const bookings = await bookingService.getPendingBookingsWithDate(req.user);
   return res
     .status(200)
@@ -91,6 +89,14 @@ const approveBookingRenewal = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, result, `Renewal approved successfully!`));
 });
 
+const confirmPayment = asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const result = await bookingService.confirmPayment(id, req.user);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Payment confirmed successfully!"));
+});
+
 export const bookingsController = {
   createBooking,
   getBookingDetails,
@@ -102,4 +108,5 @@ export const bookingsController = {
   requestBookingRenewal,
   approveBookingRenewal,
   confirmBookingEnding,
+  confirmPayment,
 };

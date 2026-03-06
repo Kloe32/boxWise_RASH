@@ -19,11 +19,11 @@ const sendEmail = async (options) => {
   const emailHtml = mailGenerator.generate(options.mailgenContent);
 
   const transporter = nodemailer.createTransport({
-    host: env.MAILTRAP_SMTP_HOST,
-    port: env.MAILTRAP_SMTP_PORT,
+    host: "sandbox.smtp.mailtrap.io",
+    port: 2525,
     auth: {
-      user: env.MAILTRAP_SMTP_USER,
-      pass: env.MAILTRAP_SMTP_PASS,
+      user: "5fedb2fea81ceb",
+      pass: "8154acb7e519c6",
     },
   });
 
@@ -45,43 +45,30 @@ const sendEmail = async (options) => {
   }
 };
 
-const emailVerificationMailgenContent = (username, verficationUrl) => {
+
+const earlyReturnRequestedMailgenContent = ({
+  customerName,
+  bookingId,
+  unitLabel,
+  requestedDate,
+  endDate,
+}) => {
   return {
     body: {
-      name: username,
-      intro: "Welcome to our App! we'are excited to have you on board.",
-
-      action: {
-        instructions:
-          "To verify your email please click on the following button",
-        button: {
-          color: "#22BC66",
-          text: "Verify your email",
-          link: verficationUrl,
-        },
-      },
-      outro:
-        "Need help, or have questions? Just reply to this email, we'd love to help.",
-    },
-  };
-};
-
-const forgotPasswordMailgenContent = (username, passwordResetUrl) => {
-  return {
-    body: {
-      name: username,
-      intro: "We got a request to reset the password of your account",
-      action: {
-        instructions:
-          "To reset your password click on the following button or link",
-        button: {
-          color: "#22BC66",
-          text: "Reset password",
-          link: passwordResetUrl,
-        },
-      },
-      outro:
-        "Need help, or have questions? Just reply to this email, we'd love to help.",
+      name: customerName,
+      intro: [
+        `Your early return request has been submitted successfully.`,
+        `<strong>Booking ID:</strong> ${bookingId}`,
+        `<strong>Unit:</strong> ${unitLabel}`,
+        `<strong>Current End Date:</strong> ${formatDate(endDate)}`,
+        `<strong>Requested Return Date:</strong> ${formatDate(requestedDate)}`,
+        `Our team will review your request and get back to you shortly.`,
+      ],
+      outro: [
+        "Please note that early returns are subject to admin approval.",
+        "If you have any questions, please contact our support team.",
+        `Support email: support@boxwise.asia`,
+      ],
     },
   };
 };
@@ -93,6 +80,13 @@ const earlyMoveOutApprovalMailgenContent = ({
   endDate,
   outstandingPayment,
 }) => {
+  console.log(
+    customerName,
+    unitLabel,
+    approvedReturnDate,
+    endDate,
+    outstandingPayment,
+  );
   const table_content = [
     {
       title: "Outstanding Amount Details",
@@ -346,6 +340,7 @@ const bookingCancelledMailgenContent = ({
   bookingId,
   unitLabel,
 }) => {
+  //console.log(customerName, bookingId, unitLabel);
   return {
     body: {
       name: customerName,
@@ -364,7 +359,6 @@ const bookingCancelledMailgenContent = ({
 };
 
 const bookingEndedMailgenContent = ({ customerName, unitLabel, endDate }) => {
-  console.log("WE ARE HERE");
   return {
     body: {
       name: customerName,
@@ -474,9 +468,72 @@ const renewalApprovedMailgenContent = ({
   };
 };
 
+const paymentConfirmedMailgenContent = ({
+  customerName,
+  bookingId,
+  unitLabel,
+  paymentDescription,
+  amount,
+  paidDate,
+}) => {
+  return {
+    body: {
+      name: customerName,
+      intro: [
+        `Your payment for unit <strong>${unitLabel}</strong> has been confirmed.`,
+        `<strong>Booking ID:</strong> ${bookingId}`,
+        `<strong>Payment:</strong> ${paymentDescription}`,
+        `<strong>Amount:</strong> $${Number(amount).toFixed(2)}`,
+        `<strong>Paid Date:</strong> ${formatDate(paidDate)}`,
+      ],
+      action: {
+        instructions:
+          "View your booking details and payment history through your dashboard:",
+        button: {
+          color: "#3869D4",
+          text: "Go to Dashboard",
+          link: `${APP_LINK}/dashboard`,
+        },
+      },
+      outro: [
+        "Thank you for your timely payment!",
+        "If you have any questions, please contact our support team.",
+        `Support email: support@boxwise.asia`,
+      ],
+    },
+  };
+};
+
+const overduePaymentMailgenContent = ({
+  customerName,
+  bookingId,
+  unitLabel,
+  overdueAmount,
+  dueDate,
+  graceDays,
+}) => {
+  return {
+    body: {
+      name: customerName,
+      intro: [
+        `<strong style="color: red;">OVERDUE PAYMENT NOTICE</strong>`,
+        `Your payment for unit <strong>${unitLabel}</strong> is <strong>${graceDays} days overdue</strong>.`,
+        `<strong>Booking ID:</strong> ${bookingId}`,
+        `<strong>Amount Due:</strong> $${Number(overdueAmount).toFixed(2)}`,
+        `<strong>Original Due Date:</strong> ${formatDate(dueDate)}`,
+        `Your booking has been cancelled and the unit has been released due to non-payment.`,
+        `All remaining pending payments have also been cancelled.`,
+      ],
+      outro: [
+        "If you believe this is an error, please contact our support team immediately.",
+        `Support email: support@boxwise.asia`,
+      ],
+    },
+  };
+};
+
 export {
-  emailVerificationMailgenContent,
-  forgotPasswordMailgenContent,
+  earlyReturnRequestedMailgenContent,
   earlyMoveOutApprovalMailgenContent,
   bookingCreatedInfoMailgenContent,
   bookingConfirmedMailgenContent,
@@ -487,5 +544,7 @@ export {
   vacatingNoticeMailgenContent,
   renewalRequestedMailgenContent,
   renewalApprovedMailgenContent,
+  paymentConfirmedMailgenContent,
+  overduePaymentMailgenContent,
   sendEmail,
 };

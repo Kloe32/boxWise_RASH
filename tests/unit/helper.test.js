@@ -10,6 +10,7 @@ const {
   overlapDays,
   monthStart,
   monthEndExclusive,
+  monthsBetween,
 } = await import("../../src/utils/helper.js");
 
 describe("Helper Utilities", () => {
@@ -130,29 +131,35 @@ describe("Helper Utilities", () => {
 
   // ─── supplyMultiplier ─────────────────────────────────
   describe("supplyMultiplier", () => {
-    it("should return TIGHT (1.05) for occupancy >= 50%", () => {
+    it("should return CRITICAL (1.3) for occupancy >= 80%", () => {
+      const result = supplyMultiplier(0.85);
+      expect(result.multiplier).toBe(1.3);
+      expect(result.label).toContain("CRITICAL");
+    });
+
+    it("should return TIGHT (1.2) for occupancy >= 50%", () => {
       const result = supplyMultiplier(0.6);
-      expect(result.multiplier).toBe(1.05);
+      expect(result.multiplier).toBe(1.2);
       expect(result.label).toContain("TIGHT");
     });
 
     it("should return TIGHT for exactly 50%", () => {
-      expect(supplyMultiplier(0.5).multiplier).toBe(1.05);
+      expect(supplyMultiplier(0.5).multiplier).toBe(1.2);
     });
 
-    it("should return NORMAL (1.0) for occupancy 40–49%", () => {
+    it("should return NORMAL (1.1) for occupancy 40–49%", () => {
       const result = supplyMultiplier(0.45);
-      expect(result.multiplier).toBe(1.0);
+      expect(result.multiplier).toBe(1.1);
       expect(result.label).toContain("NORMAL");
     });
 
     it("should return NORMAL for exactly 40%", () => {
-      expect(supplyMultiplier(0.4).multiplier).toBe(1.0);
+      expect(supplyMultiplier(0.4).multiplier).toBe(1.1);
     });
 
-    it("should return LOW (0.9) for occupancy < 40%", () => {
+    it("should return LOW (1.0) for occupancy < 40%", () => {
       const result = supplyMultiplier(0.2);
-      expect(result.multiplier).toBe(0.9);
+      expect(result.multiplier).toBe(1.0);
       expect(result.label).toContain("LOW");
     });
   });
@@ -245,6 +252,31 @@ describe("Helper Utilities", () => {
       expect(result.getFullYear()).toBe(2027);
       expect(result.getMonth()).toBe(0);
       expect(result.getDate()).toBe(1);
+    });
+  });
+
+  // ─── monthsBetween ────────────────────────────────────
+  describe("monthsBetween", () => {
+    it("should return correct months between two dates", () => {
+      expect(monthsBetween("2026-01-01", "2026-04-01")).toBe(3);
+    });
+
+    it("should return 0 when dates are the same", () => {
+      expect(monthsBetween("2026-06-01", "2026-06-01")).toBe(0);
+    });
+
+    it("should handle cross-year spans", () => {
+      expect(monthsBetween("2025-10-01", "2026-03-01")).toBe(5);
+    });
+
+    it("should clamp negative results to 0", () => {
+      expect(monthsBetween("2026-06-01", "2026-01-01")).toBe(0);
+    });
+
+    it("should accept Date objects", () => {
+      expect(monthsBetween(new Date(2026, 0, 15), new Date(2026, 6, 15))).toBe(
+        6,
+      );
     });
   });
 });

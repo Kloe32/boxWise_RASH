@@ -12,7 +12,10 @@ export const paymentRepo = {
   findPaymentsByBookingId(id, options = {}) {
     return db.Payments.findAll({
       where: { booking_id: id },
-      order: [["due_date", "ASC"], ["id", "ASC"]],
+      order: [
+        ["due_date", "ASC"],
+        ["id", "ASC"],
+      ],
       ...options,
     });
   },
@@ -35,5 +38,8 @@ export const paymentRepo = {
   },
   updatePaymentById(id, data, options = {}) {
     return db.Payments.update(data, { where: { id }, ...options });
+  },
+  findPaymentById(id, options = {}) {
+    return db.Payments.findByPk(id, options);
   },
 };

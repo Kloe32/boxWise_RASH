@@ -9,7 +9,7 @@ const PORT = env.PORT || 8080;
 app.use(
   cors({
     origin: [
-      "http://localhost:8111",
+      "http://localhost:8110",
       "https://box-wise-client.vercel.app",
       "http://localhost:3030",
     ],
@@ -24,7 +24,7 @@ async function start() {
   app.listen(PORT, () => {
     console.log(`🚀 Server is Listening on http://localhost:${PORT}`);
   });
-  if (env.RUN_JOBS === "true") startJobs();
+  // if (env.RUN_JOBS === "true") startJobs();
 }
 
 app.get("/", (req, res) => {

@@ -4,7 +4,6 @@ import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 const mockBookingRepo = {
   createBooking: jest.fn(),
   findBookingById: jest.fn(),
-  findBookingByIdBasic: jest.fn(),
   findAllBooking: jest.fn(),
   findOverlappingBookings: jest.fn(),
   updateBookingById: jest.fn(),
@@ -24,12 +23,8 @@ const mockPaymentService = {
   cancelPendingPaymentsAfterDate: jest.fn(),
 };
 
-const mockUnitTypeService = {
-  getReceiptPreview: jest.fn(),
-};
-
-const mockUnitTypeRepo = {
-  findTypeById: jest.fn(),
+const mockPaymentRepo = {
+  findPaymentById: jest.fn(),
 };
 
 const mockSendEmail = jest.fn();
@@ -52,11 +47,8 @@ jest.unstable_mockModule("../../src/repositories/storage_unit.repo.js", () => ({
 jest.unstable_mockModule("../../src/services/payment.service.js", () => ({
   paymentService: mockPaymentService,
 }));
-jest.unstable_mockModule("../../src/services/unitType.service.js", () => ({
-  unitTypeService: mockUnitTypeService,
-}));
-jest.unstable_mockModule("../../src/repositories/unitType.repo.js", () => ({
-  unitTypeRepo: mockUnitTypeRepo,
+jest.unstable_mockModule("../../src/repositories/payment.repo.js", () => ({
+  paymentRepo: mockPaymentRepo,
 }));
 jest.unstable_mockModule("../../src/pricing/pricing.engine.js", () => ({
   calculateFinalPrice: jest.fn((price, dur) => ({
@@ -77,17 +69,13 @@ jest.unstable_mockModule("../../src/utils/mail.js", () => ({
   bookingCreatedInfoMailgenContent: jest.fn(() => "email-content"),
   bookingConfirmedMailgenContent: jest.fn(() => "email-content"),
   bookingCancelledMailgenContent: jest.fn(() => "email-content"),
+  earlyReturnRequestedMailgenContent: jest.fn(() => "email-content"),
   earlyMoveOutApprovalMailgenContent: jest.fn(() => "email-content"),
   bookingEndedMailgenContent: jest.fn(() => "email-content"),
   renewalRequestedMailgenContent: jest.fn(() => "email-content"),
   renewalApprovedMailgenContent: jest.fn(() => "email-content"),
+  paymentConfirmedMailgenContent: jest.fn(() => "email-content"),
 }));
-// date-fns locale mock
-jest.unstable_mockModule("date-fns/locale", () => ({
-  ca: {},
-  se: {},
-}));
-
 const { bookingService } =
   await import("../../src/services/booking.service.js");
 
@@ -489,7 +477,7 @@ describe("bookingService.requestEarlyReturn", () => {
     ).rejects.toMatchObject({ statusCode: 409 });
   });
 
-  it("should set return_date on valid request", async () => {
+  it("should set return_date on valid request and send email", async () => {
     mockBookingRepo.findBookingById
       .mockResolvedValueOnce(fakeBooking)
       .mockResolvedValueOnce({ ...fakeBooking, return_date: "2026-04-15" });
@@ -505,6 +493,28 @@ describe("bookingService.requestEarlyReturn", () => {
       fakeBooking.id,
       { return_date: "2026-04-15" },
     );
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: fakeBooking.user.email,
+        subject: expect.stringContaining("Early Return Requested"),
+      }),
+    );
+  });
+
+  it("should not throw if email fails (just logs)", async () => {
+    mockBookingRepo.findBookingById
+      .mockResolvedValueOnce(fakeBooking)
+      .mockResolvedValueOnce({ ...fakeBooking, return_date: "2026-04-15" });
+    mockBookingRepo.updateBookingById.mockResolvedValue([1]);
+    mockSendEmail.mockRejectedValueOnce(new Error("SMTP down"));
+
+    const result = await bookingService.requestEarlyReturn(
+      fakeBooking.id,
+      "2026-04-15",
+      customerUser,
+    );
+
+    expect(result).toBeDefined();
   });
 });
 
@@ -525,14 +535,14 @@ describe("bookingService.confirmBookingEnding", () => {
   });
 
   it("should throw 404 when booking not found", async () => {
-    mockBookingRepo.findBookingByIdBasic.mockResolvedValue(null);
+    mockBookingRepo.findBookingById.mockResolvedValue(null);
     await expect(
       bookingService.confirmBookingEnding("BK-NONE", adminUser),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it("should throw 409 when already ENDED", async () => {
-    mockBookingRepo.findBookingByIdBasic.mockResolvedValue({
+    mockBookingRepo.findBookingById.mockResolvedValue({
       ...fakeBooking,
       status: "ENDED",
     });
@@ -542,7 +552,7 @@ describe("bookingService.confirmBookingEnding", () => {
   });
 
   it("should throw 409 when not VACATING", async () => {
-    mockBookingRepo.findBookingByIdBasic.mockResolvedValue({
+    mockBookingRepo.findBookingById.mockResolvedValue({
       ...fakeBooking,
       status: "CONFIRMED",
     });
@@ -552,21 +562,14 @@ describe("bookingService.confirmBookingEnding", () => {
   });
 
   it("should end booking, cancel future payments, release unit, send email", async () => {
-    mockBookingRepo.findBookingByIdBasic
-      .mockResolvedValueOnce({
-        ...fakeBooking,
-        status: "VACATING",
-        return_date: "2026-04-15",
-      })
-      .mockResolvedValueOnce({
-        ...fakeBooking,
-        status: "ENDED",
-        is_vacated: true,
-      });
+    mockBookingRepo.findBookingById.mockResolvedValue({
+      ...fakeBooking,
+      status: "VACATING",
+      return_date: "2026-04-15",
+    });
     mockBookingRepo.updateBookingById.mockResolvedValue([1]);
     mockPaymentService.cancelPendingPaymentsAfterDate.mockResolvedValue([1]);
     mockStorageUnitRepo.patchUnitStatus.mockResolvedValue([1]);
-    mockBookingRepo.findBookingById.mockResolvedValue(fakeBooking);
 
     await bookingService.confirmBookingEnding(fakeBooking.id, adminUser);
 
@@ -779,9 +782,6 @@ describe("bookingService.approveRenewal", () => {
       renewal_requested_date: "2026-09-01",
     };
     mockBookingRepo.findBookingById.mockResolvedValue(renewalBooking);
-    mockUnitTypeRepo.findTypeById.mockResolvedValue({
-      adjusted_price: 100,
-    });
     mockPaymentService.createRenewalPayment.mockResolvedValue([{}, {}]);
     mockBookingRepo.updateBookingById.mockResolvedValue([1]);
 
@@ -795,7 +795,8 @@ describe("bookingService.approveRenewal", () => {
       fakeBooking.id,
       expect.objectContaining({
         status: "RENEWED",
-        renewal_status: "APPROVED",
+        renewal_status: "NONE",
+        renewal_requested_date: null,
         end_date: "2026-09-01",
       }),
       expect.any(Object),
@@ -816,14 +817,228 @@ describe("bookingService.getPendingBookingsWithDate", () => {
   });
 
   it("should return totalPending, todayPending, yesterdayPending", async () => {
-    mockBookingRepo.findAllBooking
-      .mockResolvedValueOnce([{}, {}, {}]) // totalPending
-      .mockResolvedValueOnce([{}]) // todayPending
-      .mockResolvedValueOnce([{}, {}]); // yesterdayPending
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    mockBookingRepo.findAllBooking.mockResolvedValue([
+      { created_at: now }, // today
+      { created_at: yesterday }, // yesterday
+      { created_at: lastWeek }, // older
+    ]);
 
     const result = await bookingService.getPendingBookingsWithDate(adminUser);
     expect(result.totalPending).toHaveLength(3);
     expect(result.todayPending).toBe(1);
-    expect(result.yesterdayPending).toBe(2);
+    expect(result.yesterdayPending).toBe(1);
+  });
+});
+
+// =====================================================================
+// confirmPayment()
+// =====================================================================
+describe("bookingService.confirmPayment", () => {
+  const fakePayment = {
+    id: 20,
+    booking_id: "BK-20260301-U01-1234",
+    amount: "100.00",
+    description: "Monthly Payment - April 2026",
+    due_date: "2026-04-01",
+    payment_status: "PENDING",
+    payment_method: "CARD",
+  };
+
+  it("should throw 401 when not admin", async () => {
+    await expect(
+      bookingService.confirmPayment(20, customerUser),
+    ).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it("should throw 401 when no authUser", async () => {
+    await expect(bookingService.confirmPayment(20, null)).rejects.toMatchObject(
+      { statusCode: 401 },
+    );
+  });
+
+  it("should throw 400 when payment_id is missing", async () => {
+    await expect(
+      bookingService.confirmPayment(null, adminUser),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it("should throw 404 when payment not found", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue(null);
+
+    await expect(
+      bookingService.confirmPayment(999, adminUser),
+    ).rejects.toMatchObject({ statusCode: 404, message: "Payment Not Found!" });
+  });
+
+  it("should throw 409 when payment is already PAID", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue({
+      ...fakePayment,
+      payment_status: "PAID",
+    });
+
+    await expect(
+      bookingService.confirmPayment(20, adminUser),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Payment is already made.",
+    });
+  });
+
+  it("should throw 409 when payment status is FAILED", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue({
+      ...fakePayment,
+      payment_status: "FAILED",
+    });
+
+    await expect(
+      bookingService.confirmPayment(20, adminUser),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Cannot confirm a payment with status 'FAILED'.",
+    });
+  });
+
+  it("should throw 409 when payment status is OVERDUE", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue({
+      ...fakePayment,
+      payment_status: "OVERDUE",
+    });
+
+    await expect(
+      bookingService.confirmPayment(20, adminUser),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Cannot confirm a payment with status 'OVERDUE'.",
+    });
+  });
+
+  it("should throw 404 when booking not found", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue(fakePayment);
+    mockBookingRepo.findBookingById.mockResolvedValue(null);
+
+    await expect(
+      bookingService.confirmPayment(20, adminUser),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Booking Not Found!",
+    });
+  });
+
+  it("should throw 409 when booking is not active (PENDING)", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue(fakePayment);
+    mockBookingRepo.findBookingById.mockResolvedValue({
+      ...fakeBooking,
+      status: "PENDING",
+    });
+
+    await expect(
+      bookingService.confirmPayment(20, adminUser),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Payment can only be confirmed for active bookings.",
+    });
+  });
+
+  it("should throw 409 when booking is CANCELLED", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue(fakePayment);
+    mockBookingRepo.findBookingById.mockResolvedValue({
+      ...fakeBooking,
+      status: "CANCELLED",
+    });
+
+    await expect(
+      bookingService.confirmPayment(20, adminUser),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Payment can only be confirmed for active bookings.",
+    });
+  });
+
+  it("should throw 409 when booking is ENDED", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue(fakePayment);
+    mockBookingRepo.findBookingById.mockResolvedValue({
+      ...fakeBooking,
+      status: "ENDED",
+    });
+
+    await expect(
+      bookingService.confirmPayment(20, adminUser),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      message: "Payment can only be confirmed for active bookings.",
+    });
+  });
+
+  it("should confirm payment for CONFIRMED booking and send email", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue(fakePayment);
+    mockBookingRepo.findBookingById.mockResolvedValue({
+      ...fakeBooking,
+      status: "CONFIRMED",
+    });
+    mockPaymentService.markPaymentAsPaid.mockResolvedValue([1]);
+
+    const result = await bookingService.confirmPayment(20, adminUser);
+
+    expect(mockPaymentService.markPaymentAsPaid).toHaveBeenCalledWith(
+      fakePayment.id,
+      expect.objectContaining({ transaction: fakeTransaction }),
+    );
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: fakeBooking.user.email,
+        subject: expect.stringContaining("Payment Confirmed"),
+      }),
+    );
+    expect(result).toMatchObject({
+      payment_id: 20,
+      booking_id: fakeBooking.id,
+      amount: fakePayment.amount,
+      status: "PAID",
+    });
+  });
+
+  it("should confirm payment for RENEWED booking", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue(fakePayment);
+    mockBookingRepo.findBookingById.mockResolvedValue({
+      ...fakeBooking,
+      status: "RENEWED",
+    });
+    mockPaymentService.markPaymentAsPaid.mockResolvedValue([1]);
+
+    const result = await bookingService.confirmPayment(20, adminUser);
+
+    expect(mockPaymentService.markPaymentAsPaid).toHaveBeenCalled();
+    expect(result.status).toBe("PAID");
+  });
+
+  it("should not throw if email fails (just logs)", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue(fakePayment);
+    mockBookingRepo.findBookingById.mockResolvedValue({
+      ...fakeBooking,
+      status: "CONFIRMED",
+    });
+    mockPaymentService.markPaymentAsPaid.mockResolvedValue([1]);
+    mockSendEmail.mockRejectedValueOnce(new Error("SMTP down"));
+
+    const result = await bookingService.confirmPayment(20, adminUser);
+
+    expect(result.status).toBe("PAID");
+  });
+
+  it("should run inside a transaction", async () => {
+    mockPaymentRepo.findPaymentById.mockResolvedValue(fakePayment);
+    mockBookingRepo.findBookingById.mockResolvedValue({
+      ...fakeBooking,
+      status: "CONFIRMED",
+    });
+    mockPaymentService.markPaymentAsPaid.mockResolvedValue([1]);
+
+    await bookingService.confirmPayment(20, adminUser);
+
+    expect(mockSequelize.transaction).toHaveBeenCalledTimes(1);
   });
 });

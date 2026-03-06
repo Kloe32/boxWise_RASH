@@ -65,25 +65,51 @@ describe("storageUnitService.getAllUnits", () => {
 // =====================================================================
 // updateUnitStatus()
 // =====================================================================
+const adminUser = { id: 1, role: "ADMIN" };
+
 describe("storageUnitService.updateUnitStatus", () => {
+  it("should throw 401 when no authUser", async () => {
+    await expect(
+      storageUnitService.updateUnitStatus(1, { status: "AVAILABLE" }),
+    ).rejects.toMatchObject({ statusCode: 401 });
+  });
+
+  it("should throw 401 when not admin", async () => {
+    await expect(
+      storageUnitService.updateUnitStatus(
+        1,
+        { status: "AVAILABLE" },
+        { role: "CUSTOMER" },
+      ),
+    ).rejects.toMatchObject({ statusCode: 401 });
+  });
+
   it("should throw 404 when unit not found", async () => {
     mockStorageUnitRepo.findUnitById.mockResolvedValue(null);
     await expect(
-      storageUnitService.updateUnitStatus(999, { status: "AVAILABLE" }),
+      storageUnitService.updateUnitStatus(
+        999,
+        { status: "AVAILABLE" },
+        adminUser,
+      ),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it("should throw 400 when no payload", async () => {
     mockStorageUnitRepo.findUnitById.mockResolvedValue(fakeUnit);
     await expect(
-      storageUnitService.updateUnitStatus(1, null),
+      storageUnitService.updateUnitStatus(1, null, adminUser),
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it("should throw 400 for invalid status value", async () => {
     mockStorageUnitRepo.findUnitById.mockResolvedValue(fakeUnit);
     await expect(
-      storageUnitService.updateUnitStatus(1, { status: "DESTROYED" }),
+      storageUnitService.updateUnitStatus(
+        1,
+        { status: "DESTROYED" },
+        adminUser,
+      ),
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
@@ -94,9 +120,13 @@ describe("storageUnitService.updateUnitStatus", () => {
       .mockResolvedValueOnce(updated);
     mockStorageUnitRepo.patchUnitStatus.mockResolvedValue([1]);
 
-    const result = await storageUnitService.updateUnitStatus(1, {
-      status: "MAINTENANCE",
-    });
+    const result = await storageUnitService.updateUnitStatus(
+      1,
+      {
+        status: "MAINTENANCE",
+      },
+      adminUser,
+    );
     expect(mockStorageUnitRepo.patchUnitStatus).toHaveBeenCalledWith(1, {
       status: "MAINTENANCE",
     });

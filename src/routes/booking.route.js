@@ -4,7 +4,7 @@ import { requireAuth } from "../middlewares/verifyToken.js";
 
 const router = Router();
 
-router.post("/", requireAuth, bookingsController.createBooking);
+router.post("/create", requireAuth, bookingsController.createBooking);
 router.get("/", requireAuth, bookingsController.getBookingDetails);
 router.post("/confirm/:id", requireAuth, bookingsController.confirmBooking);
 router.post(
@@ -37,6 +37,11 @@ router.post(
   "/approve-renewal/:id",
   requireAuth,
   bookingsController.approveBookingRenewal,
+);
+router.post(
+  "/confirm-payment/:id",
+  requireAuth,
+  bookingsController.confirmPayment,
 );
 
 export default router;

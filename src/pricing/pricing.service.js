@@ -13,24 +13,30 @@ import {
 
 export const pricingService = {
   async generateSeasonalPricingPreviousYear() {
-    const now = new Date();
-    const prevYear = now.getFullYear() - 1;
+    const prevYear = new Date().getFullYear() - 1;
 
-    const yearStart = new Date(prevYear, 0, 1);
-    const yearEnd = new Date(prevYear + 1, 0, 1); // exclusive
+    // Precompute month boundaries once
+    const months = Array.from({ length: 12 }, (_, m) => {
+      const start = monthStart(prevYear, m);
+      const end = monthEndExclusive(prevYear, m);
+      return {
+        start,
+        end,
+        days: daysBetween(start, end),
+        name: start.toLocaleString("en-US", { month: "long" }),
+      };
+    });
 
     return sequelize.transaction(async (t) => {
-      const unitCounts = await storageUnitRepo.getUnitCountsByType({
-        transaction: t,
-      });
+      const [unitCounts, bookings] = await Promise.all([
+        storageUnitRepo.getUnitCountsByType({ transaction: t }),
+        bookingRepo.getEndedBookingsWithinRange(
+          { start: months[0].start, end: months[11].end },
+          { transaction: t },
+        ),
+      ]);
 
-      // 1) pull ENDED bookings that overlap prev year
-      const bookings = await bookingRepo.getEndedBookingsWithinRange(
-        { start: yearStart, end: yearEnd },
-        { transaction: t },
-      );
-
-      // 2) occupiedUnitDays[month][typeId] = number
+      // occupiedUnitDays[month][typeId] = number of occupied unit-days
       const occupiedUnitDays = Array.from({ length: 12 }, () => new Map());
 
       for (const b of bookings) {
@@ -39,10 +45,7 @@ export const pricingService = {
         const bEnd = new Date(b.end_date);
 
         for (let m = 0; m < 12; m++) {
-          const mStart = monthStart(prevYear, m);
-          const mEnd = monthEndExclusive(prevYear, m);
-          const od = overlapDays(bStart, bEnd, mStart, mEnd);
-
+          const od = overlapDays(bStart, bEnd, months[m].start, months[m].end);
           if (od > 0) {
             const map = occupiedUnitDays[m];
             map.set(typeId, (map.get(typeId) || 0) + od);
@@ -50,36 +53,30 @@ export const pricingService = {
         }
       }
 
-      // 3) generate monthly multiplier rows
+      // Generate monthly multiplier rows
       let rowsWritten = 0;
 
       for (let m = 0; m < 12; m++) {
-        const mStart = monthStart(prevYear, m);
-        const mEndEx = monthEndExclusive(prevYear, m);
-        const daysInMonth = daysBetween(mStart, mEndEx);
-        const monthName = mStart.toLocaleString("en-US", { month: "long" });
+        const { start, end, days, name } = months[m];
 
         for (const [typeId, unitCount] of unitCounts.entries()) {
-          const capacityDays = unitCount * daysInMonth;
+          const capacityDays = unitCount * days;
           const occDays = occupiedUnitDays[m].get(typeId) || 0;
           const avgOcc = capacityDays === 0 ? 0 : occDays / capacityDays;
+          const { multiplier, label } = demandMultiplier(avgOcc);
 
-          const rule = demandMultiplier(avgOcc);
-
-          // store month rule in seasonal_pricing
           await seasonalPricingRepo.upsertSeasonalPricing(
             {
               type_id: typeId,
               year_reference: prevYear,
-              start_date: mStart,
-              end_date: new Date(mEndEx.getTime() - 1),
-              multiplier: rule.multiplier,
-              demand_label: rule.label,
-              month_index: monthName,
+              start_date: start,
+              end_date: new Date(end.getTime() - 1),
+              multiplier,
+              demand_label: label,
+              month_index: name,
             },
             { transaction: t },
           );
-
           rowsWritten++;
         }
       }
@@ -88,43 +85,23 @@ export const pricingService = {
     });
   },
 
-  // Optional helper for real-time occupancy
+  // Real-time occupancy per unit type with supply multiplier
   async getCurrentOccupancyByType() {
-    const unitCounts = await storageUnitRepo.getUnitCountsByType();
-    const active = await storageUnitRepo.getCurrentOccupiedCountsByType();
+    const [unitCounts, occupiedCounts] = await Promise.all([
+      storageUnitRepo.getUnitCountsByType(),
+      storageUnitRepo.getCurrentOccupiedCountsByType(),
+    ]);
 
-    // convert to occupancy rate + multiplier
-    const result = [];
-    for (const [type_id, unit_count] of unitCounts.entries()) {
-      const occupied = active.get(type_id) || 0;
+    return [...unitCounts.entries()].map(([type_id, unit_count]) => {
+      const occupied = occupiedCounts.get(type_id) || 0;
       const rate = unit_count === 0 ? 0 : occupied / unit_count;
-      const rule = supplyMultiplier(rate);
-
-      result.push({
-        type_id,
-        unit_count,
-        occupied,
-        rate,
-        multiplier: rule.multiplier,
-        label: rule.label,
-      });
-    }
-    return result;
+      const { multiplier, label } = supplyMultiplier(rate);
+      return { type_id, unit_count, occupied, rate, multiplier, label };
+    });
   },
 
   async getMultiplierForCurrentMonth(type_id) {
-    const now = new Date();
-    const month = now.toLocaleDateString("en-US", { month: "long" });
-
-    const result = await seasonalPricingRepo.getMultiplierById(type_id, month);
-
-    return result;
+    const month = new Date().toLocaleString("en-US", { month: "long" });
+    return seasonalPricingRepo.getMultiplierById(type_id, month);
   },
 };
-
-const start = async () => {
-  const result = await pricingService.getMultiplierForCurrentMonth(1);
-  console.log("resulttt", result);
-};
-
-start();

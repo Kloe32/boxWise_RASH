@@ -44,11 +44,13 @@ export function demandMultiplier(avgOcc) {
 }
 
 export function supplyMultiplier(currOcc) {
+  if (currOcc >= 0.8)
+    return { multiplier: 1.3, label: "SUPPLY CRITICAL (80%+ now)" };
   if (currOcc >= 0.5)
-    return { multiplier: 1.05, label: "SUPPLY TIGHT (50%+ now)" };
+    return { multiplier: 1.2, label: "SUPPLY TIGHT (50%+ now)" };
   if (currOcc >= 0.4)
-    return { multiplier: 1.0, label: "SUPPLY NORMAL (40%+ now)" };
-  if (currOcc < 0.4) return { multiplier: 0.9, label: "SUPPLY LOW (<40% now)" };
+    return { multiplier: 1.1, label: "SUPPLY NORMAL (40%+ now)" };
+  if (currOcc < 0.4) return { multiplier: 1.0, label: "SUPPLY LOW (<40% now)" };
   return { multiplier: 1.0, label: "SUPPLY NORMAL" };
 }
 
@@ -65,6 +67,15 @@ export function monthEndExclusive(year, monthIndex) {
 export function daysBetween(a, b) {
   const ms = b.getTime() - a.getTime();
   return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+}
+
+export function monthsBetween(startDate, endDate) {
+  const s = new Date(startDate);
+  const e = new Date(endDate);
+  return Math.max(
+    (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()),
+    0,
+  );
 }
 
 // overlap days between [aStart, aEnd) and [bStart, bEnd)

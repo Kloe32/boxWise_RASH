@@ -10,7 +10,7 @@ router.get(
   requireAuth,
   storageUnitController.getAllUnitsWithTenant,
 );
-router.patch("/:id", storageUnitController.updateUnitStatus);
-router.get
+router.patch("/:id", requireAuth, storageUnitController.updateUnitStatus);
+router.get;
 
 export default router;

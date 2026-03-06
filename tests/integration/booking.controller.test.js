@@ -13,6 +13,7 @@ const mockBookingService = {
   getPendingBookingsWithDate: jest.fn(),
   requestRenewal: jest.fn(),
   approveRenewal: jest.fn(),
+  confirmPayment: jest.fn(),
 };
 
 // Mock requireAuth to inject a fake user
@@ -46,14 +47,14 @@ beforeEach(() => jest.clearAllMocks());
 // =====================================================================
 // POST /api/v1/bookings
 // =====================================================================
-describe("POST /api/v1/bookings", () => {
+describe("POST /api/v1/bookings/create", () => {
   it("should return 200 on successful booking", async () => {
     mockBookingService.createBooking.mockResolvedValue({
       booking: { id: "BK-1" },
       receipt: { total: 350 },
     });
 
-    const res = await request.post("/api/v1/bookings").send({
+    const res = await request.post("/api/v1/bookings/create").send({
       unit_id: 1,
       start_date: "2026-04-01",
       duration: 3,
@@ -74,7 +75,7 @@ describe("POST /api/v1/bookings", () => {
       new ApiError(400, "Credentials missing"),
     );
 
-    const res = await request.post("/api/v1/bookings").send({});
+    const res = await request.post("/api/v1/bookings/create").send({});
     expect(res.status).toBe(400);
   });
 });
@@ -222,5 +223,38 @@ describe("POST /api/v1/bookings/approve-renewal/:id", () => {
     const res = await request.post("/api/v1/bookings/approve-renewal/BK-1");
     expect(res.status).toBe(200);
     expect(res.body.message).toMatch(/renewal approved/i);
+  });
+});
+
+// =====================================================================
+// POST /api/v1/bookings/confirm-payment/:id
+// =====================================================================
+describe("POST /api/v1/bookings/confirm-payment/:id", () => {
+  it("should return 200 on payment confirmation", async () => {
+    mockBookingService.confirmPayment.mockResolvedValue({
+      payment_id: 20,
+      booking_id: "BK-1",
+      amount: "100.00",
+      status: "PAID",
+    });
+
+    const res = await request.post("/api/v1/bookings/confirm-payment/20");
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/payment confirmed/i);
+    expect(res.body.data.status).toBe("PAID");
+    expect(mockBookingService.confirmPayment).toHaveBeenCalledWith(
+      "20",
+      adminUser,
+    );
+  });
+
+  it("should return error when service throws", async () => {
+    const { ApiError } = await import("../../src/utils/ApiError.js");
+    mockBookingService.confirmPayment.mockRejectedValue(
+      new ApiError(404, "Payment Not Found!"),
+    );
+
+    const res = await request.post("/api/v1/bookings/confirm-payment/999");
+    expect(res.status).toBe(404);
   });
 });

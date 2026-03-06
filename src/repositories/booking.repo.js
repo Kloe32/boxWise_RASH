@@ -93,6 +93,38 @@ export const bookingRepo = {
       ...options,
     });
   },
+  findBookingsWithOverduePayments(cutoff, options = {}) {
+    return db.Bookings.findAll({
+      where: {
+        status: { [Op.in]: ["CONFIRMED", "RENEWED"] },
+      },
+      include: [
+        {
+          model: db.Payments,
+          as: "payments",
+          required: true,
+          where: {
+            payment_status: "PENDING",
+            due_date: { [Op.lt]: cutoff },
+          },
+        },
+        {
+          model: db.Users,
+          as: "user",
+          required: true,
+          attributes: { exclude: ["password_ecrypt"] },
+        },
+        {
+          model: db.StorageUnits,
+          as: "unit",
+          required: true,
+        },
+      ],
+      ...options,
+      lock: options.transaction?.LOCK?.UPDATE,
+    });
+  },
+
   findExpiredPending(cutoff, options = {}) {
     return db.Bookings.findAll({
       where: {
@@ -142,9 +174,6 @@ export const bookingRepo = {
       ],
       ...options,
     });
-  },
-  findBookingByIdBasic(id, options = {}) {
-    return db.Bookings.findByPk(id, options);
   },
   findBookingByUserId(user_id, options = {}) {
     return db.Bookings.findAll({

@@ -3,6 +3,7 @@ import { releaseExpiredBookings } from "../jobs/definitions/releaseExpiredBookin
 import { adjustStorageUnitPrice } from "./definitions/adjustStorageUnitPrice.job.js";
 import { paymentDue } from "./definitions/paymentDue.job.js";
 import { bookingEnding } from "./definitions/bookingEnding.job.js";
+import { overduePayment } from "./definitions/overduePayment.job.js";
 
 export function startJobs() {
   // Runs every 10 minutes
@@ -56,6 +57,22 @@ export function startJobs() {
       }
     } catch (e) {
       console.error("❌ bookingEnding failed:", e);
+    }
+  });
+
+  // Runs every day at 10:00 — cancel bookings with payments overdue > 7 days
+  cron.schedule("0 10 * * *", async () => {
+    try {
+      const result = await overduePayment();
+      if (result?.cancelled > 0) {
+        console.log(
+          `🕒 Overdue bookings cancelled: ${result.cancelled}, notified: ${result.notified}`,
+        );
+      } else {
+        console.log(`🕒 No overdue bookings to cancel`);
+      }
+    } catch (e) {
+      console.error("❌ overduePayment failed:", e);
     }
   });
 }

@@ -37,5 +37,3 @@ export function calculateFinalPrice(unitPrice, durationMonths) {
     },
   };
 }
-
-//calculate early return

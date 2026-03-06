@@ -29,7 +29,6 @@ const getUnitTypePublicStats = asyncHandler(async (req, res) => {
 const getReceiptPreview = asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const duration = Number(req.query.duration);
-  console.log(id, duration);
   const receipt = await unitTypeService.getReceiptPreview(id, duration);
   return res
     .status(200)

@@ -38,13 +38,13 @@ beforeEach(() => jest.clearAllMocks());
 // =====================================================================
 // GET /api/v1/unit-type  (admin — aggregated)
 // =====================================================================
-describe("GET /api/v1/unit-type", () => {
+describe("GET /api/v1/unit-type/get-type-data", () => {
   it("should return 200 with unit types", async () => {
     mockUnitTypeService.fetchUnitTypesWithAggre.mockResolvedValue([
       { id: 1, type_name: "Small" },
     ]);
 
-    const res = await request.get("/api/v1/unit-type");
+    const res = await request.get("/api/v1/unit-type/get-type-data");
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
   });
@@ -55,7 +55,7 @@ describe("GET /api/v1/unit-type", () => {
       new ApiError(404, "No unit types found."),
     );
 
-    const res = await request.get("/api/v1/unit-type");
+    const res = await request.get("/api/v1/unit-type/get-type-data");
     expect(res.status).toBe(404);
   });
 });
